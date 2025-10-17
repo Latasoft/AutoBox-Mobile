@@ -1,16 +1,24 @@
-﻿import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+﻿import { Stack } from 'expo-router';
 
-export default function TabLayout() {
+export default function RootLayout() {
   return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Label>Home</Label>
-        <Icon sf="house.fill" drawable="custom_android_drawable" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings">
-        <Icon sf="gear" drawable="custom_settings_drawable" />
-        <Label>Settings</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen 
+        name="index" 
+        options={{ title: 'Inicio' }} 
+      />
+      <Stack.Screen 
+        name="home" 
+        options={{ title: 'Home' }} 
+      />
+      <Stack.Screen 
+        name="login" 
+        options={{ title: 'Login' }} 
+      />
+      <Stack.Screen 
+        name="settings" 
+        options={{ title: 'Configuración' }} 
+      />
+    </Stack>
   );
 }
