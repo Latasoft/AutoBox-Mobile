@@ -1,0 +1,15 @@
+{
+  "name": "autobox-mobile",
+  "version": "1.0.0",
+  "description": "AutoBox Mobile - Plataforma integral de gestión vehicular",
+  "scripts": {
+    "start": "cls && echo \"🔄 Iniciando sistema AutoBox...\" && concurrently --hide-input-from-log --no-date --no-color --prefix \"\" \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && npm run dev",
+    "frontend": "cd frontend && npx expo start",
+    "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "dev": "npm run start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
