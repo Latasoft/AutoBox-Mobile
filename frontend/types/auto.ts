@@ -9,6 +9,7 @@ export interface Auto {
   esFavorito: boolean;
   tieneInspeccion: boolean;
   esEconomico: boolean;
+  patente: string;
 }
 
 export interface Usuario {

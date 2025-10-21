@@ -1,23 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
   Dimensions,
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import BotonAccion from '../components/BotonAccion';
 import GrillaAutos from '../components/GrillaAutos';
 import SliderMarcas from '../components/SliderMarcas';
-import BotonAccion from '../components/BotonAccion';
-import { Auto, Usuario, MarcaAuto } from '../types/auto';
+import { Auto, MarcaAuto, Usuario } from '../types/auto';
 
 const { width } = Dimensions.get('window');
 
 export default function PantallaInicio() {
+  const router = useRouter();
   const [usuario, setUsuario] = useState<Usuario>({
     id: '1',
     nombre: 'USUARIO',
@@ -139,8 +140,7 @@ export default function PantallaInicio() {
   };
 
   const manejarSolicitudMecanico = () => {
-    console.log('Solicitar mecánico');
-    // Solicitar mecánico
+    router.push('/solicitar-mecanico');
   };
 
   const manejarRevisarInspeccion = () => {
