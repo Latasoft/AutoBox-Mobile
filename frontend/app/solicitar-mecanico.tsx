@@ -27,6 +27,8 @@ export default function SolicitarMecanico() {
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [autosDisponibles, setAutosDisponibles] = useState<Auto[]>([]);
   const [mostrarModalPatente, setMostrarModalPatente] = useState(false);
+  const [mostrarModalFecha, setMostrarModalFecha] = useState(false);
+  const [mostrarModalHora, setMostrarModalHora] = useState(false);
 
   // Cargar autos desde la base de datos
   useEffect(() => {
@@ -93,9 +95,67 @@ export default function SolicitarMecanico() {
     setAutosDisponibles(autosSimulados);
   };
 
+  // Generar fechas disponibles (próximos 30 días hábiles)
+  const generarFechasDisponibles = () => {
+    const fechas = [];
+    const hoy = new Date();
+    let fechaActual = new Date(hoy);
+    
+    // Agregar fechas por los próximos 60 días, solo días laborables (lunes a viernes)
+    let diasAgregados = 0;
+    while (diasAgregados < 30) {
+      const diaSemana = fechaActual.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+      
+      // Solo agregar si es día laboral (lunes a viernes)
+      if (diaSemana >= 1 && diaSemana <= 5) {
+        fechas.push({
+          fecha: new Date(fechaActual),
+          texto: fechaActual.toLocaleDateString('es-CL', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+        });
+        diasAgregados++;
+      }
+      
+      fechaActual.setDate(fechaActual.getDate() + 1);
+    }
+    
+    return fechas;
+  };
+
+  // Generar horas disponibles (8:00 AM a 6:00 PM)
+  const generarHorasDisponibles = () => {
+    const horas = [];
+    for (let i = 8; i <= 18; i++) {
+      const hora12 = i > 12 ? i - 12 : i;
+      const periodo = i >= 12 ? 'PM' : 'AM';
+      const hora24 = i.toString().padStart(2, '0') + ':00';
+      
+      horas.push({
+        valor: hora24,
+        texto: `${hora12}:00 ${periodo}`,
+        disponible: true // Aquí podrías agregar lógica para verificar disponibilidad
+      });
+    }
+    return horas;
+  };
+
   const seleccionarPatente = (auto: Auto) => {
     setPatente(`${auto.patente} - ${auto.marca} ${auto.modelo}`);
     setMostrarModalPatente(false);
+  };
+
+  const seleccionarFecha = (fechaObj: any) => {
+    setFecha(fechaObj.texto);
+    setMostrarModalFecha(false);
+  };
+
+  const seleccionarHora = (horaObj: any) => {
+    setHora(horaObj.texto);
+    setMostrarModalHora(false);
   };
 
   const manejarSolicitud = () => {
@@ -132,6 +192,33 @@ export default function SolicitarMecanico() {
         <Text style={estilos.textoKilometraje}>{item.kilometraje.toLocaleString()} km</Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color="#666" />
+    </TouchableOpacity>
+  );
+
+  const renderItemFecha = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={estilos.itemSelector}
+      onPress={() => seleccionarFecha(item)}
+    >
+      <Text style={estilos.textoItemSelector}>{item.texto}</Text>
+      <Ionicons name="chevron-forward" size={20} color="#666" />
+    </TouchableOpacity>
+  );
+
+  const renderItemHora = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={[estilos.itemSelector, !item.disponible && estilos.itemNoDisponible]}
+      onPress={() => item.disponible && seleccionarHora(item)}
+      disabled={!item.disponible}
+    >
+      <Text style={[estilos.textoItemSelector, !item.disponible && estilos.textoNoDisponible]}>
+        {item.texto}
+      </Text>
+      {item.disponible ? (
+        <Ionicons name="chevron-forward" size={20} color="#666" />
+      ) : (
+        <Text style={estilos.textoNoDisponible}>No disponible</Text>
+      )}
     </TouchableOpacity>
   );
 
@@ -183,8 +270,11 @@ export default function SolicitarMecanico() {
           <View style={estilos.filaFechaHora}>
             <View style={estilos.columnaFecha}>
               <Text style={estilos.etiquetaCampo}>FECHA</Text>
-              <TouchableOpacity style={estilos.campoSeleccion}>
-                <Text style={estilos.textoSeleccion}>
+              <TouchableOpacity 
+                style={estilos.campoSeleccion}
+                onPress={() => setMostrarModalFecha(true)}
+              >
+                <Text style={[estilos.textoSeleccion, fecha ? estilos.textoSeleccionado : null]}>
                   {fecha || 'SELECCIONAR'}
                 </Text>
                 <Ionicons name="calendar-outline" size={20} color="#666" />
@@ -193,8 +283,11 @@ export default function SolicitarMecanico() {
 
             <View style={estilos.columnaHora}>
               <Text style={estilos.etiquetaCampo}>HORA</Text>
-              <TouchableOpacity style={estilos.campoSeleccion}>
-                <Text style={estilos.textoSeleccion}>
+              <TouchableOpacity 
+                style={estilos.campoSeleccion}
+                onPress={() => setMostrarModalHora(true)}
+              >
+                <Text style={[estilos.textoSeleccion, hora ? estilos.textoSeleccionado : null]}>
                   {hora || 'SELECCIONAR'}
                 </Text>
                 <Ionicons name="time-outline" size={20} color="#666" />
@@ -301,6 +394,74 @@ export default function SolicitarMecanico() {
                 data={autosDisponibles}
                 renderItem={renderItemPatente}
                 keyExtractor={(item) => item.id}
+                style={estilos.listaPatentes}
+                showsVerticalScrollIndicator={false}
+              />
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal para seleccionar fecha */}
+        <Modal
+          visible={mostrarModalFecha}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setMostrarModalFecha(false)}
+        >
+          <View style={estilos.modalOverlay}>
+            <View style={estilos.modalContenido}>
+              <View style={estilos.modalHeader}>
+                <Text style={estilos.modalTitulo}>Seleccionar Fecha</Text>
+                <TouchableOpacity
+                  onPress={() => setMostrarModalFecha(false)}
+                  style={estilos.botonCerrarModal}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={estilos.subtituloModal}>
+                Solo días laborables (Lunes a Viernes)
+              </Text>
+              
+              <FlatList
+                data={generarFechasDisponibles()}
+                renderItem={renderItemFecha}
+                keyExtractor={(item, index) => index.toString()}
+                style={estilos.listaPatentes}
+                showsVerticalScrollIndicator={false}
+              />
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal para seleccionar hora */}
+        <Modal
+          visible={mostrarModalHora}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setMostrarModalHora(false)}
+        >
+          <View style={estilos.modalOverlay}>
+            <View style={estilos.modalContenido}>
+              <View style={estilos.modalHeader}>
+                <Text style={estilos.modalTitulo}>Seleccionar Hora</Text>
+                <TouchableOpacity
+                  onPress={() => setMostrarModalHora(false)}
+                  style={estilos.botonCerrarModal}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={estilos.subtituloModal}>
+                Horario de atención: 8:00 AM - 6:00 PM
+              </Text>
+              
+              <FlatList
+                data={generarHorasDisponibles()}
+                renderItem={renderItemHora}
+                keyExtractor={(item, index) => index.toString()}
                 style={estilos.listaPatentes}
                 showsVerticalScrollIndicator={false}
               />
@@ -475,7 +636,7 @@ const estilos = StyleSheet.create({
   botonNavegacion: {
     padding: 10,
   },
-  // Nuevos estilos para el modal
+  // Estilos para modales
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -505,6 +666,15 @@ const estilos = StyleSheet.create({
   botonCerrarModal: {
     padding: 5,
   },
+  subtituloModal: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    padding: 10,
+    backgroundColor: '#f9f9f9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
   listaPatentes: {
     maxHeight: 400,
   },
@@ -532,5 +702,27 @@ const estilos = StyleSheet.create({
   textoKilometraje: {
     fontSize: 12,
     color: '#999',
+  },
+  // Nuevos estilos para selectores de fecha y hora
+  itemSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  itemNoDisponible: {
+    backgroundColor: '#f9f9f9',
+    opacity: 0.6,
+  },
+  textoItemSelector: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  textoNoDisponible: {
+    color: '#999',
+    fontSize: 12,
   },
 });
