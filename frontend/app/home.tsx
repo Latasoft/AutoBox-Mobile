@@ -17,7 +17,7 @@ import { Auto, MarcaAuto, Usuario } from '../types/auto';
 
 const { width } = Dimensions.get('window');
 
-export default function PantallaInicio() {
+export default function Home() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<Usuario>({
     id: '1',
@@ -41,9 +41,10 @@ export default function PantallaInicio() {
         id: '1',
         marca: 'Mazda',
         modelo: '2011 RM',
+        patente: 'BBCD12',
         año: 2011,
         precio: 5500000,
-        imagen: 'https://via.placeholder.com/200x150/blue/white?text=Mazda',
+        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
         kilometraje: 80000,
         esFavorito: false,
         tieneInspeccion: true,
@@ -53,9 +54,10 @@ export default function PantallaInicio() {
         id: '2',
         marca: 'Mazda',
         modelo: '2011 RM',
+        patente: 'CDEF34',
         año: 2011,
         precio: 5500000,
-        imagen: 'https://via.placeholder.com/200x150/green/white?text=Mazda',
+        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
         kilometraje: 75000,
         esFavorito: true,
         tieneInspeccion: true,
@@ -65,9 +67,10 @@ export default function PantallaInicio() {
         id: '3',
         marca: 'Mazda',
         modelo: '2013 Sport',
+        patente: 'GHIJ56',
         año: 2013,
         precio: 6200000,
-        imagen: 'https://via.placeholder.com/200x150/red/white?text=Mazda',
+        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
         kilometraje: 65000,
         esFavorito: false,
         tieneInspeccion: true,
@@ -77,9 +80,10 @@ export default function PantallaInicio() {
         id: '4',
         marca: 'Chevrolet',
         modelo: 'Spark 2015',
+        patente: 'KLMN78',
         año: 2015,
         precio: 4800000,
-        imagen: 'https://via.placeholder.com/200x150/orange/white?text=Chevrolet',
+        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
         kilometraje: 90000,
         esFavorito: true,
         tieneInspeccion: false,
@@ -89,9 +93,10 @@ export default function PantallaInicio() {
         id: '5',
         marca: 'Hyundai',
         modelo: 'Accent 2018',
+        patente: 'OPQR90',
         año: 2018,
         precio: 7500000,
-        imagen: 'https://via.placeholder.com/200x150/purple/white?text=Hyundai',
+        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
         kilometraje: 45000,
         esFavorito: false,
         tieneInspeccion: true,
@@ -101,9 +106,10 @@ export default function PantallaInicio() {
         id: '6',
         marca: 'Nissan',
         modelo: 'Versa 2016',
+        patente: 'STUV12',
         año: 2016,
         precio: 6800000,
-        imagen: 'https://via.placeholder.com/200x150/brown/white?text=Nissan',
+        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
         kilometraje: 55000,
         esFavorito: true,
         tieneInspeccion: true,
@@ -149,8 +155,7 @@ export default function PantallaInicio() {
   };
 
   const manejarVenderAuto = () => {
-    console.log('Vender auto');
-    // Vender auto
+    router.push('/vender-auto');
   };
 
   return (
