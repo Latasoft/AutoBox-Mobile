@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Dimensions,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Dimensions,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import BotonAccion from '../components/BotonAccion';
 import GrillaAutos from '../components/GrillaAutos';
@@ -17,7 +17,7 @@ import { Auto, MarcaAuto, Usuario } from '../types/auto';
 
 const { width } = Dimensions.get('window');
 
-export default function Home() {
+export default function PantallaInicio() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<Usuario>({
     id: '1',
@@ -26,13 +26,43 @@ export default function Home() {
   });
 
   const [autos, setAutos] = useState<Auto[]>([]);
+  const [misAutos, setMisAutos] = useState<Auto[]>([]);
   const [marcas, setMarcas] = useState<MarcaAuto[]>([]);
   const [seccionSeleccionada, setSeccionSeleccionada] = useState('en-venta');
 
   // Simulacion datos de la base de datos
   useEffect(() => {
     cargarDatos();
+    cargarMisAutos();
   }, []);
+
+  const cargarMisAutos = async () => {
+    try {
+      // Por ahora usamos user_id = 1
+      const response = await fetch('http://localhost:3000/api/listings/my-listings?user_id=1');
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        // Convertir los datos de la API al formato del frontend
+        const autosFormateados: Auto[] = data.data.map((listing: any) => ({
+          id: listing.id.toString(),
+          marca: listing.brand_name,
+          modelo: `${listing.year} ${listing.model_name}`,
+          año: listing.year,
+          precio: listing.price,
+          imagen: listing.video_url || 'https://via.placeholder.com/200x150/blue/white?text=Auto',
+          kilometraje: listing.mileage,
+          esFavorito: false,
+          tieneInspeccion: listing.has_mechanical_inspection,
+          esEconomico: false,
+          patente: listing.license_plate,
+        }));
+        setMisAutos(autosFormateados);
+      }
+    } catch (error) {
+      console.error('Error al cargar mis autos:', error);
+    }
+  };
 
   const cargarDatos = async () => {
     // Conectar con tu API de PostgreSQL
@@ -41,79 +71,79 @@ export default function Home() {
         id: '1',
         marca: 'Mazda',
         modelo: '2011 RM',
-        patente: 'BBCD12',
         año: 2011,
         precio: 5500000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        imagen: 'https://via.placeholder.com/200x150/blue/white?text=Mazda',
         kilometraje: 80000,
         esFavorito: false,
         tieneInspeccion: true,
         esEconomico: true,
+        patente: 'BBCD12',
       },
       {
         id: '2',
         marca: 'Mazda',
         modelo: '2011 RM',
-        patente: 'CDEF34',
         año: 2011,
         precio: 5500000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        imagen: 'https://via.placeholder.com/200x150/green/white?text=Mazda',
         kilometraje: 75000,
         esFavorito: true,
         tieneInspeccion: true,
         esEconomico: false,
+        patente: 'XXYY45',
       },
       {
         id: '3',
         marca: 'Mazda',
         modelo: '2013 Sport',
-        patente: 'GHIJ56',
         año: 2013,
         precio: 6200000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        imagen: 'https://via.placeholder.com/200x150/red/white?text=Mazda',
         kilometraje: 65000,
         esFavorito: false,
         tieneInspeccion: true,
         esEconomico: true,
+        patente: 'GGFF23',
       },
       {
         id: '4',
         marca: 'Chevrolet',
         modelo: 'Spark 2015',
-        patente: 'KLMN78',
         año: 2015,
         precio: 4800000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        imagen: 'https://via.placeholder.com/200x150/orange/white?text=Chevrolet',
         kilometraje: 90000,
         esFavorito: true,
         tieneInspeccion: false,
         esEconomico: true,
+        patente: 'LLMM67',
       },
       {
         id: '5',
         marca: 'Hyundai',
         modelo: 'Accent 2018',
-        patente: 'OPQR90',
         año: 2018,
         precio: 7500000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        imagen: 'https://via.placeholder.com/200x150/purple/white?text=Hyundai',
         kilometraje: 45000,
         esFavorito: false,
         tieneInspeccion: true,
         esEconomico: false,
+        patente: 'PPQQ89',
       },
       {
         id: '6',
         marca: 'Nissan',
         modelo: 'Versa 2016',
-        patente: 'STUV12',
         año: 2016,
         precio: 6800000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        imagen: 'https://via.placeholder.com/200x150/brown/white?text=Nissan',
         kilometraje: 55000,
         esFavorito: true,
         tieneInspeccion: true,
         esEconomico: true,
+        patente: 'RRSS12',
       },
     ];
 
@@ -220,7 +250,7 @@ export default function Home() {
           <View style={estilos.encabezadoSeccion}>
             <Text style={estilos.tituloSeccion}>MIS AUTOS EN VENTA</Text>
           </View>
-          <GrillaAutos autos={obtenerAutosFiltrados()} />
+          <GrillaAutos autos={misAutos} />
 
           <View style={estilos.encabezadoSeccion}>
             <Text style={estilos.tituloSeccion}>MIS FAVORITOS</Text>

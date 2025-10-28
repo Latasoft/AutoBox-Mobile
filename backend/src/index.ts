@@ -1,6 +1,8 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import path from 'path';
+import vehicleRoutes from './routes/vehicles';
 import { testDatabaseConnection } from './utils/database-test';
 
 dotenv.config();
@@ -11,6 +13,13 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Servir archivos estáticos (videos subidos)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Rutas de la API
+app.use('/api', vehicleRoutes);
 
 // Ruta principal
 app.get('/', (req, res) => {
