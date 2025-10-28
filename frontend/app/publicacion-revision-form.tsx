@@ -13,10 +13,10 @@ import {
     View,
 } from 'react-native';
 import VehicleFormLayout from '../components/VehicleFormLayout';
-import { 
-  validatePatente, 
-  validatePrecio, 
-  validateKilometraje 
+import {
+    validateKilometraje,
+    validatePatente,
+    validatePrecio
 } from '../utils/validations';
 
 interface Region {

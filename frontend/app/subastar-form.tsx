@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -13,10 +13,10 @@ import {
     View,
 } from 'react-native';
 import VehicleFormLayout from '../components/VehicleFormLayout';
-import { 
-  validatePatente, 
-  validatePrecio, 
-  validateKilometraje 
+import {
+    validateKilometraje,
+    validatePatente,
+    validatePrecio
 } from '../utils/validations';
 
 interface Region {

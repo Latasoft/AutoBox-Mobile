@@ -14,12 +14,10 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { 
-  validatePatente, 
-  validatePrecio, 
-  validateKilometraje,
-  formatPrecio,
-  formatKilometraje 
+import {
+    validateKilometraje,
+    validatePatente,
+    validatePrecio
 } from '../utils/validations';
 
 interface Region {
