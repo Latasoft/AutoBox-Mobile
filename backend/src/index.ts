@@ -1,8 +1,7 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
-import path from 'path';
-import vehicleRoutes from './routes/vehicles';
+import authRoutes from './routes/auth.routes';
 import { testDatabaseConnection } from './utils/database-test';
 
 dotenv.config();
@@ -13,13 +12,127 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Servir archivos estáticos (videos subidos)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Rutas de API
+app.use('/api/auth', authRoutes);
 
-// Rutas de la API
-app.use('/api', vehicleRoutes);
+// Endpoints para autoboxes
+app.get('/api/autoboxes', async (req, res) => {
+    try {
+        const { query } = await import('./config/database');
+        const result = await query('SELECT id_autobox, nombre, direccion, ciudad FROM autoboxes WHERE activo = true ORDER BY nombre');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo autoboxes:', error);
+        res.status(500).json({ error: 'Error obteniendo autoboxes' });
+    }
+});
+
+// Endpoints para horarios
+app.get('/api/horarios', async (req, res) => {
+    try {
+        const { query } = await import('./config/database');
+        const result = await query('SELECT id_horario, hora FROM horarios_disponibles WHERE activo = true ORDER BY hora');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo horarios:', error);
+        res.status(500).json({ error: 'Error obteniendo horarios' });
+    }
+});
+
+// Endpoint para crear publicaciones
+app.post('/api/publicaciones', async (req, res) => {
+    try {
+        const { query } = await import('./config/database');
+        const {
+            id_usuario,
+            tipo_publicacion,
+            precio_venta,
+            patente,
+            marca,
+            modelo,
+            año,
+            kilometraje,
+            region,
+            ciudad,
+            observaciones,
+            video_url,
+            fecha_revision,
+            hora_revision,
+            id_autobox,
+            rut,
+            telefono,
+            email,
+            precio_objetivo
+        } = req.body;
+
+        const result = await query(
+            `INSERT INTO publicaciones 
+            (id_usuario, tipo_publicacion, precio_venta, patente, marca, modelo, año, kilometraje, 
+             region, ciudad, observaciones, video_url, fecha_revision, hora_revision, id_autobox, 
+             rut, telefono, email, precio_objetivo, estado) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'pendiente')
+            RETURNING *`,
+            [id_usuario, tipo_publicacion, precio_venta, patente, marca, modelo, año, kilometraje,
+             region, ciudad, observaciones, video_url, fecha_revision, hora_revision, id_autobox, 
+             rut, telefono, email, precio_objetivo]
+        );
+
+        res.status(201).json({ 
+            success: true, 
+            message: 'Publicación creada exitosamente',
+            publicacion: result.rows[0] 
+        });
+    } catch (error) {
+        console.error('Error creando publicación:', error);
+        res.status(500).json({ error: 'Error creando publicación' });
+    }
+});
+
+// Endpoint para obtener publicaciones
+app.get('/api/publicaciones', async (req, res) => {
+    try {
+        const { query } = await import('./config/database');
+        const result = await query(`
+            SELECT p.*, 
+                   CONCAT(up.first_name, ' ', up.last_name) as nombre_usuario, 
+                   u.email as email_usuario
+            FROM publicaciones p
+            LEFT JOIN users u ON p.id_usuario = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE p.estado = 'aprobada' OR p.estado = 'pendiente'
+            ORDER BY p.created_at DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo publicaciones:', error);
+        res.status(500).json({ error: 'Error obteniendo publicaciones' });
+    }
+});
+
+// Endpoint para obtener inspecciones de un usuario
+app.get('/api/publicaciones/inspecciones/:userId', async (req, res) => {
+    try {
+        const { query } = await import('./config/database');
+        const { userId } = req.params;
+        
+        const result = await query(`
+            SELECT p.*, 
+                   a.nombre as autobox_nombre,
+                   a.direccion as autobox_direccion
+            FROM publicaciones p
+            LEFT JOIN autoboxes a ON p.id_autobox = a.id_autobox
+            WHERE p.id_usuario = $1 
+            AND p.tipo_publicacion = 'con_revision'
+            ORDER BY p.created_at DESC
+        `, [userId]);
+        
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo inspecciones:', error);
+        res.status(500).json({ error: 'Error obteniendo inspecciones' });
+    }
+});
 
 // Ruta principal
 app.get('/', (req, res) => {

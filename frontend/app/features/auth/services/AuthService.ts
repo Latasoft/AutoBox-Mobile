@@ -1,4 +1,4 @@
-import { LoginCredentials, LoginResponse, User, AuthError } from '../types';
+import { AuthError, LoginCredentials, LoginResponse, User } from '../types';
 
 const API_BASE_URL = 'http://localhost:3000/api'; // Cambia esta URL por la de tu backend
 
@@ -9,12 +9,18 @@ class AuthService {
   // Login
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     try {
+      // Cambiar username por email para que coincida con el backend
+      const loginData = {
+        email: credentials.username, // El backend espera 'email'
+        password: credentials.password
+      };
+
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify(loginData),
       });
 
       const data = await response.json();
@@ -26,21 +32,30 @@ class AuthService {
         } as AuthError;
       }
 
-      // Guardar token en memoria por ahora
-      if (data.token) {
-        this.token = data.token;
-        // También podrías obtener los datos del usuario aquí
-        await this.getUserData();
+      // Guardar datos del usuario en memoria
+      if (data.success && data.data && data.data.user) {
+        this.userData = data.data.user;
+        // Generar un token simulado (en producción vendría del backend)
+        this.token = 'auth_token_' + data.data.user.id;
       }
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
+      // Si es un error de red
       if (error instanceof TypeError && error.message.includes('Network')) {
         throw {
           status: 0,
           message: 'Error de conexión. Verifica tu conexión a internet.',
         } as AuthError;
       }
+      // Si es un error con fetch (timeout, etc)
+      if (error.name === 'AbortError') {
+        throw {
+          status: 0,
+          message: 'La solicitud ha tardado demasiado. Verifica tu conexión.',
+        } as AuthError;
+      }
+      // Re-lanzar el error tal como viene del backend
       throw error;
     }
   }
@@ -63,23 +78,8 @@ class AuthService {
 
   // Verificar si está autenticado
   async isAuthenticated(): Promise<boolean> {
-    if (!this.token) return false;
-
-    try {
-      // Verificar si el token es válido haciendo una petición al backend
-      const response = await fetch(`${API_BASE_URL}/auth/verify`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.error('Error verifying token:', error);
-      return false;
-    }
+    // Simplemente verificar si hay token y datos de usuario
+    return this.token !== null && this.userData !== null;
   }
 
   // Obtener datos del usuario

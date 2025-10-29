@@ -1,466 +1,658 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
-import * as DocumentPicker from 'expo-document-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
+    SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
-import VehicleFormLayout from '../components/VehicleFormLayout';
-import {
-    validateKilometraje,
-    validatePatente,
-    validatePrecio
-} from '../utils/validations';
 
-interface Region {
-  id: number;
-  name: string;
-}
-
-interface City {
-  id: number;
-  region_id: number;
-  name: string;
-}
-
-export default function SubastarFormScreen() {
+export default function SubastarForm() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const auctionType = params.type as string || 'standard';
   
-  const [loading, setLoading] = useState(false);
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [filteredCities, setFilteredCities] = useState<City[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-
+  const [paso, setPaso] = useState(1);
   const [formData, setFormData] = useState({
-    price: '',
-    reserve_price: '',
-    license_plate: '',
-    mileage: '',
-    region_id: '',
-    city_id: '',
-    observations: '',
-    duration_days: '7',
-    bid_increment: '100000',
-  });
-  
-  const [errors, setErrors] = useState({
-    price: '',
-    reserve_price: '',
-    license_plate: '',
-    mileage: '',
-  });
-  
-  const [videoFile, setVideoFile] = useState<any>(null);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (formData.region_id) {
-      const filtered = cities.filter(
-        city => city.region_id === parseInt(formData.region_id)
-      );
-      setFilteredCities(filtered);
-    } else {
-      setFilteredCities([]);
-    }
-  }, [formData.region_id, cities]);
-
-  const loadData = async () => {
-    try {
-      const [regionsRes, citiesRes] = await Promise.all([
-        fetch('http://localhost:3000/api/regions'),
-        fetch('http://localhost:3000/api/cities')
-      ]);
-      
-      const regionsData = await regionsRes.json();
-      const citiesData = await citiesRes.json();
-      
-      if (regionsData.success) setRegions(regionsData.data);
-      if (citiesData.success) setCities(citiesData.data);
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
-  const validateField = (field: string, value: string) => {
-    let error = '';
+    // Paso 1: Datos del vehículo
+    marca: '',
+    modelo: '',
+    año: '',
+    kilometraje: '',
+    precioBase: '',
+    descripcion: '',
     
-    switch (field) {
-      case 'price':
-      case 'reserve_price':
-        const priceResult = validatePrecio(value);
-        error = priceResult.isValid ? '' : priceResult.message || '';
-        break;
-      case 'license_plate':
-        const patenteResult = validatePatente(value);
-        error = patenteResult.isValid ? '' : patenteResult.message || '';
-        break;
-      case 'mileage':
-        const kmResult = validateKilometraje(value);
-        error = kmResult.isValid ? '' : kmResult.message || '';
-        break;
-    }
+    // Paso 2: Configuración de subasta
+    duracionSubasta: '3', // días
+    precioReserva: '',
+    incrementoMinimo: '50000',
     
-    setErrors(prev => ({ ...prev, [field]: error }));
-    return error === '';
-  };
+    // Paso 3: Documentación
+    permisoCirculacion: false,
+    revisionTecnica: false,
+    seguroVigente: false,
+    notasFinales: '',
+  });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (value) validateField(field, value);
-  };
-
-  const handlePickVideo = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'video/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled === false && result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        
-        if (file.size && file.size > 60 * 1024 * 1024) {
-          Alert.alert('Error', 'El video no debe superar los 60MB');
-          return;
-        }
-
-        setVideoFile(file);
-        Alert.alert('Éxito', 'Video seleccionado correctamente');
+  const handleContinuar = () => {
+    if (paso === 1) {
+      if (!formData.marca || !formData.modelo || !formData.año || !formData.kilometraje || !formData.precioBase) {
+        Alert.alert('Error', 'Por favor completa todos los campos del vehículo');
+        return;
       }
-    } catch (error) {
-      console.error('Error al seleccionar video:', error);
-      Alert.alert('Error', 'No se pudo seleccionar el video');
+      setPaso(2);
+    } else if (paso === 2) {
+      if (!formData.precioReserva || parseInt(formData.precioReserva) < parseInt(formData.precioBase)) {
+        Alert.alert('Error', 'El precio de reserva debe ser mayor o igual al precio base');
+        return;
+      }
+      setPaso(3);
+    } else if (paso === 3) {
+      handleFinalizar();
     }
   };
 
-  const handleSubmit = async () => {
-    // Validaciones
-    const isPriceValid = validateField('price', formData.price);
-    const isPatenteValid = validateField('license_plate', formData.license_plate);
-    const isKmValid = validateField('mileage', formData.mileage);
-    
-    if (!formData.price || !formData.license_plate || !formData.mileage || !formData.city_id) {
-      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
-      return;
-    }
-
-    if (auctionType === 'reserve' && !formData.reserve_price) {
-      Alert.alert('Error', 'El precio de reserva es obligatorio para este tipo de subasta');
-      return;
-    }
-
-    if (!isPriceValid || !isPatenteValid || !isKmValid) {
-      Alert.alert('Error', 'Por favor corrige los errores en el formulario');
-      return;
-    }
-
-    if (!videoFile) {
-      Alert.alert('Error', 'Por favor adjunta un video del vehículo');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // TODO: Implementar lógica de creación de subasta
-      Alert.alert(
-        'Subasta Creada',
-        'Tu subasta ha sido publicada exitosamente',
-        [{ text: 'OK', onPress: () => router.push('/home') }]
-      );
-    } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Ocurrió un error al crear la subasta');
-    } finally {
-      setLoading(false);
-    }
+  const handleFinalizar = () => {
+    const comision = parseInt(formData.precioReserva) * 0.05;
+    Alert.alert(
+      'Subasta Creada',
+      `Tu subasta ha sido creada exitosamente.\n\nDuración: ${formData.duracionSubasta} días\nPrecio base: $${parseInt(formData.precioBase).toLocaleString()}\nComisión (5%): $${comision.toLocaleString()}\n\nLos compradores podrán pujar desde ahora.`,
+      [
+        {
+          text: 'Ver mis subastas',
+          onPress: () => router.push('/home'),
+        },
+      ]
+    );
   };
 
-  const getAuctionTypeTitle = () => {
-    switch (auctionType) {
-      case 'reserve':
-        return 'Subasta con Reserva';
-      case 'dutch':
-        return 'Subasta Holandesa';
-      default:
-        return 'Subasta Estándar';
+  const handleRetroceder = () => {
+    if (paso > 1) {
+      setPaso(paso - 1);
+    } else {
+      router.back();
     }
   };
 
   return (
-    <VehicleFormLayout
-      title="SUBASTAR MI AUTO"
-      subtitle={getAuctionTypeTitle()}
-    >
-      <View style={styles.form}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>PRECIO BASE DE SUBASTA *</Text>
-          <TextInput
-            style={[styles.input, errors.price && styles.inputError]}
-            value={formData.price}
-            onChangeText={(text) => handleInputChange('price', text.replace(/[^0-9]/g, ''))}
-            placeholder="Ej: 5000000"
-            keyboardType="numeric"
-          />
-          {errors.price ? <Text style={styles.errorText}>{errors.price}</Text> : null}
-          <Text style={styles.helperText}>Precio inicial desde donde comienza la subasta</Text>
+    <SafeAreaView style={estilos.contenedor}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={estilos.encabezado}>
+          <TouchableOpacity 
+            style={estilos.botonRegresar} 
+            onPress={handleRetroceder}
+          >
+            <Ionicons name="arrow-back" size={24} color="#4CAF50" />
+          </TouchableOpacity>
+          <Text style={estilos.titulo}>Subastar Mi Auto</Text>
+          <View style={estilos.espacioVacio} />
         </View>
 
-        {auctionType === 'reserve' && (
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>PRECIO DE RESERVA *</Text>
-            <TextInput
-              style={[styles.input, errors.reserve_price && styles.inputError]}
-              value={formData.reserve_price}
-              onChangeText={(text) => handleInputChange('reserve_price', text.replace(/[^0-9]/g, ''))}
-              placeholder="Ej: 6000000"
-              keyboardType="numeric"
-            />
-            {errors.reserve_price ? <Text style={styles.errorText}>{errors.reserve_price}</Text> : null}
-            <Text style={styles.helperText}>Precio mínimo al que estás dispuesto a vender</Text>
+        {/* Indicador de pasos */}
+        <View style={estilos.indicadorPasos}>
+          <View style={estilos.pasoItem}>
+            <View style={[estilos.circuloPaso, paso >= 1 && estilos.pasoActivo]}>
+              <Text style={[estilos.textoPaso, paso >= 1 && estilos.textoActivo]}>1</Text>
+            </View>
+            <Text style={estilos.labelPaso}>Vehículo</Text>
           </View>
-        )}
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>PATENTE *</Text>
-          <TextInput
-            style={[styles.input, errors.license_plate && styles.inputError]}
-            value={formData.license_plate}
-            onChangeText={(text) => handleInputChange('license_plate', text.toUpperCase())}
-            placeholder="BBCD12"
-            autoCapitalize="characters"
-            maxLength={6}
-          />
-          {errors.license_plate ? <Text style={styles.errorText}>{errors.license_plate}</Text> : null}
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>KILOMETRAJE *</Text>
-          <TextInput
-            style={[styles.input, errors.mileage && styles.inputError]}
-            value={formData.mileage}
-            onChangeText={(text) => handleInputChange('mileage', text.replace(/[^0-9]/g, ''))}
-            placeholder="Ej: 85000"
-            keyboardType="numeric"
-          />
-          {errors.mileage ? <Text style={styles.errorText}>{errors.mileage}</Text> : null}
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>REGIÓN *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.region_id}
-              onValueChange={(value: string) => setFormData({ ...formData, region_id: value, city_id: '' })}
-            >
-              <Picker.Item label="Selecciona región" value="" />
-              {regions.map(r => (
-                <Picker.Item key={r.id} label={r.name} value={r.id.toString()} />
-              ))}
-            </Picker>
+          
+          <View style={[estilos.lineaPaso, paso >= 2 && estilos.lineaActiva]} />
+          
+          <View style={estilos.pasoItem}>
+            <View style={[estilos.circuloPaso, paso >= 2 && estilos.pasoActivo]}>
+              <Text style={[estilos.textoPaso, paso >= 2 && estilos.textoActivo]}>2</Text>
+            </View>
+            <Text style={estilos.labelPaso}>Subasta</Text>
+          </View>
+          
+          <View style={[estilos.lineaPaso, paso >= 3 && estilos.lineaActiva]} />
+          
+          <View style={estilos.pasoItem}>
+            <View style={[estilos.circuloPaso, paso >= 3 && estilos.pasoActivo]}>
+              <Text style={[estilos.textoPaso, paso >= 3 && estilos.textoActivo]}>3</Text>
+            </View>
+            <Text style={estilos.labelPaso}>Documentos</Text>
           </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>CIUDAD *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.city_id}
-              onValueChange={(value: string) => setFormData({ ...formData, city_id: value })}
-              enabled={formData.region_id !== ''}
-            >
-              <Picker.Item label={formData.region_id ? "Selecciona ciudad" : "Primero selecciona región"} value="" />
-              {filteredCities.map(c => (
-                <Picker.Item key={c.id} label={c.name} value={c.id.toString()} />
-              ))}
-            </Picker>
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>DURACIÓN DE LA SUBASTA *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.duration_days}
-              onValueChange={(value: string) => setFormData({ ...formData, duration_days: value })}
-            >
-              <Picker.Item label="3 días" value="3" />
-              <Picker.Item label="5 días" value="5" />
-              <Picker.Item label="7 días" value="7" />
-              <Picker.Item label="10 días" value="10" />
-              <Picker.Item label="14 días" value="14" />
-            </Picker>
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>INCREMENTO MÍNIMO DE OFERTA *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.bid_increment}
-              onValueChange={(value: string) => setFormData({ ...formData, bid_increment: value })}
-            >
-              <Picker.Item label="$50.000" value="50000" />
-              <Picker.Item label="$100.000" value="100000" />
-              <Picker.Item label="$200.000" value="200000" />
-              <Picker.Item label="$500.000" value="500000" />
-            </Picker>
-          </View>
-          <Text style={styles.helperText}>Monto mínimo que debe aumentar cada oferta</Text>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>OBSERVACIONES</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={formData.observations}
-            onChangeText={(text) => setFormData({ ...formData, observations: text })}
-            placeholder="Describe tu vehículo..."
-            multiline
-            numberOfLines={4}
-          />
-        </View>
-
-        <TouchableOpacity style={styles.videoButton} onPress={handlePickVideo}>
-          <Ionicons name="cloud-upload-outline" size={30} color="#666" />
-          <Text style={styles.videoButtonText}>ADJUNTAR VIDEO</Text>
-          <Text style={styles.videoButtonSubtext}>(máx 60 seg)</Text>
-        </TouchableOpacity>
-
-        {videoFile && (
-          <View style={styles.videoInfo}>
-            <Ionicons name="checkmark-circle" size={24} color="#7CB342" />
-            <Text style={styles.videoInfoText}>Video seleccionado: {videoFile.name}</Text>
-          </View>
-        )}
-
-        <TouchableOpacity 
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]} 
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
+        {/* Formulario según el paso */}
+        <View style={estilos.formulario}>
+          {paso === 1 && (
             <>
-              <Ionicons name="hammer" size={24} color="#FFF" />
-              <Text style={styles.submitButtonText}>PUBLICAR SUBASTA</Text>
+              <Text style={estilos.tituloSeccion}>Datos del Vehículo</Text>
+              
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Marca *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: Toyota, Chevrolet, Hyundai"
+                  value={formData.marca}
+                  onChangeText={(text) => setFormData({...formData, marca: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Modelo *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: Corolla, Cruze, Elantra"
+                  value={formData.modelo}
+                  onChangeText={(text) => setFormData({...formData, modelo: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Año *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: 2020"
+                  keyboardType="numeric"
+                  value={formData.año}
+                  onChangeText={(text) => setFormData({...formData, año: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Kilometraje (km) *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: 50000"
+                  keyboardType="numeric"
+                  value={formData.kilometraje}
+                  onChangeText={(text) => setFormData({...formData, kilometraje: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Precio Base (CLP) *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Precio mínimo de inicio"
+                  keyboardType="numeric"
+                  value={formData.precioBase}
+                  onChangeText={(text) => setFormData({...formData, precioBase: text})}
+                />
+                <Text style={estilos.ayuda}>Este es el precio desde el cual comenzará la puja</Text>
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Descripción (Opcional)</Text>
+                <TextInput
+                  style={[estilos.input, estilos.textArea]}
+                  placeholder="Describe las características, estado y extras de tu vehículo..."
+                  multiline
+                  numberOfLines={4}
+                  value={formData.descripcion}
+                  onChangeText={(text) => setFormData({...formData, descripcion: text})}
+                />
+              </View>
             </>
           )}
-        </TouchableOpacity>
-      </View>
-    </VehicleFormLayout>
+
+          {paso === 2 && (
+            <>
+              <Text style={estilos.tituloSeccion}>Configuración de Subasta</Text>
+              
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Duración de la Subasta *</Text>
+                <View style={estilos.duracionContainer}>
+                  {['3', '5', '7'].map((dias) => (
+                    <TouchableOpacity
+                      key={dias}
+                      style={[
+                        estilos.botonDuracion,
+                        formData.duracionSubasta === dias && estilos.duracionSeleccionada
+                      ]}
+                      onPress={() => setFormData({...formData, duracionSubasta: dias})}
+                    >
+                      <Text style={[
+                        estilos.textoDuracion,
+                        formData.duracionSubasta === dias && estilos.textoDuracionSeleccionada
+                      ]}>
+                        {dias} días
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Precio de Reserva (CLP) *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Precio mínimo de venta"
+                  keyboardType="numeric"
+                  value={formData.precioReserva}
+                  onChangeText={(text) => setFormData({...formData, precioReserva: text})}
+                />
+                <Text style={estilos.ayuda}>
+                  Si la puja no alcanza este precio, no estás obligado a vender
+                </Text>
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Incremento Mínimo (CLP) *</Text>
+                <View style={estilos.incrementoContainer}>
+                  {['50000', '100000', '200000', '500000'].map((incremento) => (
+                    <TouchableOpacity
+                      key={incremento}
+                      style={[
+                        estilos.botonIncremento,
+                        formData.incrementoMinimo === incremento && estilos.incrementoSeleccionado
+                      ]}
+                      onPress={() => setFormData({...formData, incrementoMinimo: incremento})}
+                    >
+                      <Text style={[
+                        estilos.textoIncremento,
+                        formData.incrementoMinimo === incremento && estilos.textoIncrementoSeleccionado
+                      ]}>
+                        ${parseInt(incremento).toLocaleString()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={estilos.ayuda}>Monto mínimo para cada nueva puja</Text>
+              </View>
+
+              {/* Simulador de comisión */}
+              <View style={estilos.comisionContainer}>
+                <Text style={estilos.tituloComision}>Comisión estimada</Text>
+                {formData.precioReserva && (
+                  <>
+                    <Text style={estilos.precioReserva}>
+                      ${parseInt(formData.precioReserva).toLocaleString()}
+                    </Text>
+                    <Text style={estilos.porcentajeComision}>× 5% =</Text>
+                    <Text style={estilos.montoComision}>
+                      ${(parseInt(formData.precioReserva) * 0.05).toLocaleString()}
+                    </Text>
+                    <Text style={estilos.textoComision}>
+                      Solo pagas si vendes tu vehículo
+                    </Text>
+                  </>
+                )}
+              </View>
+            </>
+          )}
+
+          {paso === 3 && (
+            <>
+              <Text style={estilos.tituloSeccion}>Documentación del Vehículo</Text>
+              
+              <Text style={estilos.subtitulo}>Confirma que tienes los siguientes documentos:</Text>
+
+              <TouchableOpacity 
+                style={estilos.checkboxContainer}
+                onPress={() => setFormData({...formData, permisoCirculacion: !formData.permisoCirculacion})}
+              >
+                <View style={[estilos.checkbox, formData.permisoCirculacion && estilos.checkboxMarcado]}>
+                  {formData.permisoCirculacion && <Ionicons name="checkmark" size={20} color="#fff" />}
+                </View>
+                <View style={estilos.checkboxTexto}>
+                  <Text style={estilos.checkboxTitulo}>Permiso de Circulación</Text>
+                  <Text style={estilos.checkboxDescripcion}>Vigente 2025</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={estilos.checkboxContainer}
+                onPress={() => setFormData({...formData, revisionTecnica: !formData.revisionTecnica})}
+              >
+                <View style={[estilos.checkbox, formData.revisionTecnica && estilos.checkboxMarcado]}>
+                  {formData.revisionTecnica && <Ionicons name="checkmark" size={20} color="#fff" />}
+                </View>
+                <View style={estilos.checkboxTexto}>
+                  <Text style={estilos.checkboxTitulo}>Revisión Técnica</Text>
+                  <Text style={estilos.checkboxDescripcion}>Aprobada y al día</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={estilos.checkboxContainer}
+                onPress={() => setFormData({...formData, seguroVigente: !formData.seguroVigente})}
+              >
+                <View style={[estilos.checkbox, formData.seguroVigente && estilos.checkboxMarcado]}>
+                  {formData.seguroVigente && <Ionicons name="checkmark" size={20} color="#fff" />}
+                </View>
+                <View style={estilos.checkboxTexto}>
+                  <Text style={estilos.checkboxTitulo}>Seguro Obligatorio (SOAP)</Text>
+                  <Text style={estilos.checkboxDescripcion}>Vigente y pagado</Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Notas Finales (Opcional)</Text>
+                <TextInput
+                  style={[estilos.input, estilos.textArea]}
+                  placeholder="Información adicional sobre el estado del vehículo, historial de mantenciones, etc."
+                  multiline
+                  numberOfLines={4}
+                  value={formData.notasFinales}
+                  onChangeText={(text) => setFormData({...formData, notasFinales: text})}
+                />
+              </View>
+
+              <View style={estilos.infoFinal}>
+                <Ionicons name="information-circle" size={24} color="#2196F3" />
+                <Text style={estilos.textoInfoFinal}>
+                  Una vez publicada la subasta, comenzará inmediatamente y no podrá ser cancelada.
+                </Text>
+              </View>
+            </>
+          )}
+
+          {/* Botón de continuar/finalizar */}
+          <TouchableOpacity 
+            style={estilos.botonContinuar}
+            onPress={handleContinuar}
+          >
+            <Text style={estilos.textoBotonContinuar}>
+              {paso === 3 ? 'Iniciar Subasta' : 'Continuar'}
+            </Text>
+            <Ionicons name="arrow-forward" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Navegación inferior */}
+        <View style={estilos.navegacionInferior}>
+          <TouchableOpacity 
+            style={estilos.botonNavegacion}
+            onPress={handleRetroceder}
+          >
+            <Ionicons name="arrow-back-circle" size={50} color="#4CAF50" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={estilos.botonNavegacion}
+            onPress={() => router.push('/home')}
+          >
+            <Ionicons name="home" size={50} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  form: {
-    gap: 20,
-    paddingBottom: 40,
+const estilos = StyleSheet.create({
+  contenedor: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
   },
-  inputGroup: {
-    gap: 8,
+  encabezado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
+  botonRegresar: {
+    padding: 8,
+  },
+  titulo: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  espacioVacio: {
+    width: 40,
+  },
+  indicadorPasos: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+  },
+  pasoItem: {
+    alignItems: 'center',
+  },
+  circuloPaso: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pasoActivo: {
+    backgroundColor: '#4CAF50',
+  },
+  textoPaso: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#999',
+  },
+  textoActivo: {
+    color: '#fff',
+  },
+  labelPaso: {
+    fontSize: 12,
     color: '#666',
   },
+  lineaPaso: {
+    width: 50,
+    height: 2,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 8,
+  },
+  lineaActiva: {
+    backgroundColor: '#4CAF50',
+  },
+  formulario: {
+    padding: 20,
+    backgroundColor: '#fff',
+    marginTop: 16,
+  },
+  tituloSeccion: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+  },
+  subtitulo: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+  },
+  campoContainer: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
   input: {
+    backgroundColor: '#f9f9f9',
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
-  },
-  inputError: {
-    borderColor: '#FF5252',
-    backgroundColor: '#FFEBEE',
-  },
-  errorText: {
-    color: '#FF5252',
-    fontSize: 12,
-  },
-  helperText: {
-    color: '#999',
-    fontSize: 12,
+    color: '#333',
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  pickerContainer: {
+  ayuda: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  duracionContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  botonDuracion: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: '#ddd',
     borderRadius: 8,
-    backgroundColor: '#F9F9F9',
-  },
-  videoButton: {
-    backgroundColor: '#F0F0F0',
-    borderRadius: 12,
-    padding: 20,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#DDD',
-    borderStyle: 'dashed',
   },
-  videoButtonText: {
+  duracionSeleccionada: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  textoDuracion: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  textoDuracionSeleccionada: {
+    color: '#fff',
+  },
+  incrementoContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  botonIncremento: {
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  incrementoSeleccionado: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  textoIncremento: {
     fontSize: 14,
     fontWeight: '600',
     color: '#666',
-    marginTop: 10,
   },
-  videoButtonSubtext: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
+  textoIncrementoSeleccionado: {
+    color: '#fff',
   },
-  videoInfo: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  videoInfoText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#7CB342',
-    flex: 1,
-  },
-  submitButton: {
-    flexDirection: 'row',
-    backgroundColor: '#FF9800',
+  comisionContainer: {
+    backgroundColor: '#FFF3E0',
+    padding: 20,
     borderRadius: 12,
-    padding: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
     marginTop: 20,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
+  tituloComision: {
+    fontSize: 16,
+    color: '#E65100',
+    fontWeight: '600',
+    marginBottom: 12,
   },
-  submitButtonText: {
+  precioReserva: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  porcentajeComision: {
+    fontSize: 16,
+    color: '#666',
+    marginVertical: 4,
+  },
+  montoComision: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FF9800',
+    marginBottom: 8,
+  },
+  textoComision: {
+    fontSize: 13,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  checkboxMarcado: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  checkboxTexto: {
+    flex: 1,
+  },
+  checkboxTitulo: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  checkboxDescripcion: {
+    fontSize: 13,
+    color: '#666',
+  },
+  infoFinal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  textoInfoFinal: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1565C0',
+    marginLeft: 12,
+    lineHeight: 20,
+  },
+  botonContinuar: {
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    gap: 12,
+  },
+  textoBotonContinuar: {
+    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFF',
+  },
+  navegacionInferior: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 30,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    marginTop: 24,
+  },
+  botonNavegacion: {
+    padding: 10,
   },
 });

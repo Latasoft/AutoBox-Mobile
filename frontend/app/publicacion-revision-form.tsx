@@ -1,515 +1,524 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
-import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
+    SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
-import VehicleFormLayout from '../components/VehicleFormLayout';
-import {
-    validateKilometraje,
-    validatePatente,
-    validatePrecio
-} from '../utils/validations';
 
-interface Region {
-  id: number;
-  name: string;
-}
-
-interface City {
-  id: number;
-  region_id: number;
-  name: string;
-}
-
-interface AutoBox {
-  id: number;
-  name: string;
-  address: string;
-  city_id: number;
-}
-
-export default function PublicacionRevisionFormScreen() {
+export default function PublicacionRevisionForm() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
   
-  // Datos de formulario
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [filteredCities, setFilteredCities] = useState<City[]>([]);
-  const [autoboxes, setAutoboxes] = useState<AutoBox[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-
+  const [paso, setPaso] = useState(1);
   const [formData, setFormData] = useState({
-    price: '',
-    license_plate: '',
-    mileage: '',
-    region_id: '',
-    city_id: '',
-    observations: '',
-    autobox_id: '',
-    inspection_date: '',
-    inspection_time: '',
+    // Paso 1: Datos del vehículo
+    marca: '',
+    modelo: '',
+    año: '',
+    kilometraje: '',
+    precio: '',
+    
+    // Paso 2: Datos del propietario
+    nombrePropietario: '',
+    telefonoPropietario: '',
+    emailPropietario: '',
+    direccion: '',
+    
+    // Paso 3: Solicitar revisión mecánica
+    fechaPreferida: '',
+    horaPreferida: '',
+    notasAdicionales: '',
   });
-  
-  const [errors, setErrors] = useState({
-    price: '',
-    license_plate: '',
-    mileage: '',
-  });
-  
-  const [videoFile, setVideoFile] = useState<any>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const handleContinuar = () => {
+    if (paso === 1) {
+      if (!formData.marca || !formData.modelo || !formData.año || !formData.kilometraje || !formData.precio) {
+        Alert.alert('Error', 'Por favor completa todos los campos del vehículo');
+        return;
+      }
+      setPaso(2);
+    } else if (paso === 2) {
+      if (!formData.nombrePropietario || !formData.telefonoPropietario || !formData.emailPropietario) {
+        Alert.alert('Error', 'Por favor completa todos tus datos de contacto');
+        return;
+      }
+      setPaso(3);
+    } else if (paso === 3) {
+      if (!formData.fechaPreferida || !formData.horaPreferida) {
+        Alert.alert('Error', 'Por favor selecciona fecha y hora para la revisión');
+        return;
+      }
+      handleFinalizar();
+    }
+  };
 
-  useEffect(() => {
-    if (formData.region_id) {
-      const filtered = cities.filter(
-        city => city.region_id === parseInt(formData.region_id)
-      );
-      setFilteredCities(filtered);
+  const handleFinalizar = () => {
+    Alert.alert(
+      'Solicitud Enviada',
+      'Tu solicitud de publicación con revisión mecánica ha sido enviada. Un mecánico se contactará contigo pronto.',
+      [
+        {
+          text: 'Ver mis solicitudes',
+          onPress: () => router.push('/home'),
+        },
+      ]
+    );
+  };
+
+  const handleRetroceder = () => {
+    if (paso > 1) {
+      setPaso(paso - 1);
     } else {
-      setFilteredCities([]);
-    }
-  }, [formData.region_id, cities]);
-
-  const loadData = async () => {
-    try {
-      const [regionsRes, citiesRes] = await Promise.all([
-        fetch('http://localhost:3000/api/regions'),
-        fetch('http://localhost:3000/api/cities')
-      ]);
-      
-      const regionsData = await regionsRes.json();
-      const citiesData = await citiesRes.json();
-      
-      if (regionsData.success) setRegions(regionsData.data);
-      if (citiesData.success) setCities(citiesData.data);
-      
-      // TODO: Cargar autoboxes desde la API
-      setAutoboxes([
-        { id: 1, name: 'AutoBox Ñuñoa', address: 'Av. Grecia 9832', city_id: 1 },
-        { id: 2, name: 'AutoBox Las Condes', address: 'Av. Apoquindo 4501', city_id: 1 },
-      ]);
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-    } finally {
-      setLoadingData(false);
+      router.back();
     }
   };
-
-  const validateField = (field: string, value: string) => {
-    let error = '';
-    
-    switch (field) {
-      case 'price':
-        const priceResult = validatePrecio(value);
-        error = priceResult.isValid ? '' : priceResult.message || '';
-        break;
-      case 'license_plate':
-        const patenteResult = validatePatente(value);
-        error = patenteResult.isValid ? '' : patenteResult.message || '';
-        break;
-      case 'mileage':
-        const kmResult = validateKilometraje(value);
-        error = kmResult.isValid ? '' : kmResult.message || '';
-        break;
-    }
-    
-    setErrors(prev => ({ ...prev, [field]: error }));
-    return error === '';
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (value) validateField(field, value);
-  };
-
-  const handlePickVideo = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'video/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled === false && result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        
-        if (file.size && file.size > 60 * 1024 * 1024) {
-          Alert.alert('Error', 'El video no debe superar los 60MB');
-          return;
-        }
-
-        setVideoFile(file);
-        Alert.alert('Éxito', 'Video seleccionado correctamente');
-      }
-    } catch (error) {
-      console.error('Error al seleccionar video:', error);
-      Alert.alert('Error', 'No se pudo seleccionar el video');
-    }
-  };
-
-  const handleNext = () => {
-    if (currentStep === 1) {
-      // Validar datos del vehículo
-      const isPriceValid = validateField('price', formData.price);
-      const isPatenteValid = validateField('license_plate', formData.license_plate);
-      const isKmValid = validateField('mileage', formData.mileage);
-      
-      if (!formData.price || !formData.license_plate || !formData.mileage || !formData.city_id) {
-        Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
-        return;
-      }
-
-      if (!isPriceValid || !isPatenteValid || !isKmValid) {
-        Alert.alert('Error', 'Por favor corrige los errores en el formulario');
-        return;
-      }
-
-      if (!videoFile) {
-        Alert.alert('Error', 'Por favor adjunta un video del vehículo');
-        return;
-      }
-
-      setCurrentStep(2);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!formData.autobox_id || !formData.inspection_date || !formData.inspection_time) {
-      Alert.alert('Error', 'Por favor completa los datos de la inspección');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // TODO: Implementar lógica de creación con inspección
-      Alert.alert(
-        'Solicitud Enviada',
-        'Tu solicitud de inspección ha sido recibida. Te contactaremos pronto.',
-        [{ text: 'OK', onPress: () => router.push('/home') }]
-      );
-    } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Ocurrió un error al enviar la solicitud');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderStep1 = () => (
-    <View style={styles.form}>
-      <Text style={styles.stepTitle}>Paso 1: Datos del Vehículo</Text>
-      
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>PRECIO VENTA *</Text>
-        <TextInput
-          style={[styles.input, errors.price && styles.inputError]}
-          value={formData.price}
-          onChangeText={(text) => handleInputChange('price', text.replace(/[^0-9]/g, ''))}
-          placeholder="Ej: 5500000"
-          keyboardType="numeric"
-        />
-        {errors.price ? <Text style={styles.errorText}>{errors.price}</Text> : null}
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>PATENTE *</Text>
-        <TextInput
-          style={[styles.input, errors.license_plate && styles.inputError]}
-          value={formData.license_plate}
-          onChangeText={(text) => handleInputChange('license_plate', text.toUpperCase())}
-          placeholder="BBCD12"
-          autoCapitalize="characters"
-          maxLength={6}
-        />
-        {errors.license_plate ? <Text style={styles.errorText}>{errors.license_plate}</Text> : null}
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>KILOMETRAJE *</Text>
-        <TextInput
-          style={[styles.input, errors.mileage && styles.inputError]}
-          value={formData.mileage}
-          onChangeText={(text) => handleInputChange('mileage', text.replace(/[^0-9]/g, ''))}
-          placeholder="Ej: 85000"
-          keyboardType="numeric"
-        />
-        {errors.mileage ? <Text style={styles.errorText}>{errors.mileage}</Text> : null}
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>REGIÓN *</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={formData.region_id}
-            onValueChange={(value: string) => setFormData({ ...formData, region_id: value, city_id: '' })}
-          >
-            <Picker.Item label="Selecciona región" value="" />
-            {regions.map(r => (
-              <Picker.Item key={r.id} label={r.name} value={r.id.toString()} />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>CIUDAD *</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={formData.city_id}
-            onValueChange={(value: string) => setFormData({ ...formData, city_id: value })}
-            enabled={formData.region_id !== ''}
-          >
-            <Picker.Item label={formData.region_id ? "Selecciona ciudad" : "Primero selecciona región"} value="" />
-            {filteredCities.map(c => (
-              <Picker.Item key={c.id} label={c.name} value={c.id.toString()} />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>OBSERVACIONES</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={formData.observations}
-          onChangeText={(text) => setFormData({ ...formData, observations: text })}
-          placeholder="Describe tu vehículo..."
-          multiline
-          numberOfLines={4}
-        />
-      </View>
-
-      <TouchableOpacity style={styles.videoButton} onPress={handlePickVideo}>
-        <Ionicons name="cloud-upload-outline" size={30} color="#666" />
-        <Text style={styles.videoButtonText}>ADJUNTAR VIDEO</Text>
-      </TouchableOpacity>
-
-      {videoFile && (
-        <View style={styles.videoInfo}>
-          <Ionicons name="checkmark-circle" size={24} color="#7CB342" />
-          <Text style={styles.videoInfoText}>Video seleccionado</Text>
-        </View>
-      )}
-
-      <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-        <Text style={styles.nextButtonText}>SIGUIENTE</Text>
-        <Ionicons name="arrow-forward" size={24} color="#FFF" />
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderStep2 = () => (
-    <View style={styles.form}>
-      <Text style={styles.stepTitle}>Paso 2: Agendar Inspección</Text>
-      
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>AUTOBOX *</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={formData.autobox_id}
-            onValueChange={(value: string) => setFormData({ ...formData, autobox_id: value })}
-          >
-            <Picker.Item label="Selecciona un AutoBox" value="" />
-            {autoboxes.map(ab => (
-              <Picker.Item 
-                key={ab.id} 
-                label={`${ab.name} - ${ab.address}`} 
-                value={ab.id.toString()} 
-              />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>FECHA *</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.inspection_date}
-          onChangeText={(text) => setFormData({ ...formData, inspection_date: text })}
-          placeholder="DD/MM/AAAA"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>HORA *</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.inspection_time}
-          onChangeText={(text) => setFormData({ ...formData, inspection_time: text })}
-          placeholder="HH:MM"
-        />
-      </View>
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => setCurrentStep(1)}
-        >
-          <Ionicons name="arrow-back" size={20} color="#666" />
-          <Text style={styles.backButtonText}>ATRÁS</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]} 
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>ENVIAR SOLICITUD</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
 
   return (
-    <VehicleFormLayout
-      title="PUBLICACIÓN CON"
-      subtitle="REVISIÓN MECÁNICA"
-    >
-      {currentStep === 1 ? renderStep1() : renderStep2()}
-    </VehicleFormLayout>
+    <SafeAreaView style={estilos.contenedor}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={estilos.encabezado}>
+          <TouchableOpacity 
+            style={estilos.botonRegresar} 
+            onPress={handleRetroceder}
+          >
+            <Ionicons name="arrow-back" size={24} color="#4CAF50" />
+          </TouchableOpacity>
+          <Text style={estilos.titulo}>Publicación con Revisión</Text>
+          <View style={estilos.espacioVacio} />
+        </View>
+
+        {/* Indicador de pasos */}
+        <View style={estilos.indicadorPasos}>
+          <View style={estilos.pasoItem}>
+            <View style={[estilos.circuloPaso, paso >= 1 && estilos.pasoActivo]}>
+              <Text style={[estilos.textoPaso, paso >= 1 && estilos.textoActivo]}>1</Text>
+            </View>
+            <Text style={estilos.labelPaso}>Vehículo</Text>
+          </View>
+          
+          <View style={[estilos.lineaPaso, paso >= 2 && estilos.lineaActiva]} />
+          
+          <View style={estilos.pasoItem}>
+            <View style={[estilos.circuloPaso, paso >= 2 && estilos.pasoActivo]}>
+              <Text style={[estilos.textoPaso, paso >= 2 && estilos.textoActivo]}>2</Text>
+            </View>
+            <Text style={estilos.labelPaso}>Contacto</Text>
+          </View>
+          
+          <View style={[estilos.lineaPaso, paso >= 3 && estilos.lineaActiva]} />
+          
+          <View style={estilos.pasoItem}>
+            <View style={[estilos.circuloPaso, paso >= 3 && estilos.pasoActivo]}>
+              <Text style={[estilos.textoPaso, paso >= 3 && estilos.textoActivo]}>3</Text>
+            </View>
+            <Text style={estilos.labelPaso}>Revisión</Text>
+          </View>
+        </View>
+
+        {/* Formulario según el paso */}
+        <View style={estilos.formulario}>
+          {paso === 1 && (
+            <>
+              <Text style={estilos.tituloSeccion}>Datos del Vehículo</Text>
+              
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Marca *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: Toyota, Chevrolet, Hyundai"
+                  value={formData.marca}
+                  onChangeText={(text) => setFormData({...formData, marca: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Modelo *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: Corolla, Cruze, Elantra"
+                  value={formData.modelo}
+                  onChangeText={(text) => setFormData({...formData, modelo: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Año *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: 2020"
+                  keyboardType="numeric"
+                  value={formData.año}
+                  onChangeText={(text) => setFormData({...formData, año: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Kilometraje (km) *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: 50000"
+                  keyboardType="numeric"
+                  value={formData.kilometraje}
+                  onChangeText={(text) => setFormData({...formData, kilometraje: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Precio Estimado (CLP) *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Ej: 8000000"
+                  keyboardType="numeric"
+                  value={formData.precio}
+                  onChangeText={(text) => setFormData({...formData, precio: text})}
+                />
+              </View>
+            </>
+          )}
+
+          {paso === 2 && (
+            <>
+              <Text style={estilos.tituloSeccion}>Tus Datos de Contacto</Text>
+              
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Nombre Completo *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Tu nombre completo"
+                  value={formData.nombrePropietario}
+                  onChangeText={(text) => setFormData({...formData, nombrePropietario: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Teléfono *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="+56 9 1234 5678"
+                  keyboardType="phone-pad"
+                  value={formData.telefonoPropietario}
+                  onChangeText={(text) => setFormData({...formData, telefonoPropietario: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Email *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="tu@email.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={formData.emailPropietario}
+                  onChangeText={(text) => setFormData({...formData, emailPropietario: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Dirección (Opcional)</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="Calle, número, comuna"
+                  value={formData.direccion}
+                  onChangeText={(text) => setFormData({...formData, direccion: text})}
+                />
+              </View>
+            </>
+          )}
+
+          {paso === 3 && (
+            <>
+              <Text style={estilos.tituloSeccion}>Agendar Revisión Mecánica</Text>
+              
+              <View style={estilos.infoRevision}>
+                <Ionicons name="construct" size={40} color="#4CAF50" />
+                <Text style={estilos.textoInfoRevision}>
+                  Un mecánico certificado visitará tu ubicación para revisar el vehículo
+                </Text>
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Fecha Preferida *</Text>
+                <TextInput
+                  style={estilos.input}
+                  placeholder="DD/MM/AAAA"
+                  value={formData.fechaPreferida}
+                  onChangeText={(text) => setFormData({...formData, fechaPreferida: text})}
+                />
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Hora Preferida *</Text>
+                <View style={estilos.horasContainer}>
+                  {['09:00', '11:00', '14:00', '16:00', '18:00'].map((hora) => (
+                    <TouchableOpacity
+                      key={hora}
+                      style={[
+                        estilos.botonHora,
+                        formData.horaPreferida === hora && estilos.horaSeleccionada
+                      ]}
+                      onPress={() => setFormData({...formData, horaPreferida: hora})}
+                    >
+                      <Text style={[
+                        estilos.textoHora,
+                        formData.horaPreferida === hora && estilos.textoHoraSeleccionada
+                      ]}>
+                        {hora}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={estilos.campoContainer}>
+                <Text style={estilos.label}>Notas Adicionales (Opcional)</Text>
+                <TextInput
+                  style={[estilos.input, estilos.textArea]}
+                  placeholder="Información adicional sobre tu vehículo o preferencias de horario..."
+                  multiline
+                  numberOfLines={4}
+                  value={formData.notasAdicionales}
+                  onChangeText={(text) => setFormData({...formData, notasAdicionales: text})}
+                />
+              </View>
+
+              <View style={estilos.costoContainer}>
+                <Text style={estilos.textoCosto}>Costo del servicio:</Text>
+                <Text style={estilos.costo}>$50.000 CLP</Text>
+                <Text style={estilos.textoIncluye}>Incluye revisión + publicación premium</Text>
+              </View>
+            </>
+          )}
+
+          {/* Botón de continuar/finalizar */}
+          <TouchableOpacity 
+            style={estilos.botonContinuar}
+            onPress={handleContinuar}
+          >
+            <Text style={estilos.textoBotonContinuar}>
+              {paso === 3 ? 'Solicitar Revisión' : 'Continuar'}
+            </Text>
+            <Ionicons name="arrow-forward" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Navegación inferior */}
+        <View style={estilos.navegacionInferior}>
+          <TouchableOpacity 
+            style={estilos.botonNavegacion}
+            onPress={handleRetroceder}
+          >
+            <Ionicons name="arrow-back-circle" size={50} color="#4CAF50" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={estilos.botonNavegacion}
+            onPress={() => router.push('/home')}
+          >
+            <Ionicons name="home" size={50} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  form: {
-    gap: 20,
+const estilos = StyleSheet.create({
+  contenedor: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
   },
-  stepTitle: {
+  encabezado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  botonRegresar: {
+    padding: 8,
+  },
+  titulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4A90E2',
-    marginBottom: 15,
+    color: '#333',
   },
-  inputGroup: {
-    gap: 8,
+  espacioVacio: {
+    width: 40,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
+  indicadorPasos: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+  },
+  pasoItem: {
+    alignItems: 'center',
+  },
+  circuloPaso: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pasoActivo: {
+    backgroundColor: '#4CAF50',
+  },
+  textoPaso: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#999',
+  },
+  textoActivo: {
+    color: '#fff',
+  },
+  labelPaso: {
+    fontSize: 12,
     color: '#666',
   },
+  lineaPaso: {
+    width: 50,
+    height: 2,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 8,
+  },
+  lineaActiva: {
+    backgroundColor: '#4CAF50',
+  },
+  formulario: {
+    padding: 20,
+    backgroundColor: '#fff',
+    marginTop: 16,
+  },
+  tituloSeccion: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+  },
+  campoContainer: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
   input: {
+    backgroundColor: '#f9f9f9',
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
-  },
-  inputError: {
-    borderColor: '#FF5252',
-    backgroundColor: '#FFEBEE',
-  },
-  errorText: {
-    color: '#FF5252',
-    fontSize: 12,
+    color: '#333',
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 8,
-    backgroundColor: '#F9F9F9',
-  },
-  videoButton: {
-    backgroundColor: '#F0F0F0',
-    borderRadius: 12,
-    padding: 20,
+  infoRevision: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#DDD',
-    borderStyle: 'dashed',
+    backgroundColor: '#E8F5E9',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
   },
-  videoButtonText: {
+  textoInfoRevision: {
+    flex: 1,
     fontSize: 14,
+    color: '#333',
+    marginLeft: 12,
+    lineHeight: 20,
+  },
+  horasContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  botonHora: {
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  horaSeleccionada: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  textoHora: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#666',
-    marginTop: 10,
   },
-  videoInfo: {
+  textoHoraSeleccionada: {
+    color: '#fff',
+  },
+  costoContainer: {
     backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  videoInfoText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#7CB342',
-  },
-  nextButton: {
-    flexDirection: 'row',
-    backgroundColor: '#7CB342',
+    padding: 20,
     borderRadius: 12,
-    padding: 16,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  textoCosto: {
+    fontSize: 16,
+    color: '#555',
+    marginBottom: 8,
+  },
+  costo: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    marginBottom: 4,
+  },
+  textoIncluye: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  botonContinuar: {
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginTop: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    gap: 12,
   },
-  nextButtonText: {
+  textoBotonContinuar: {
+    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFF',
   },
-  buttonRow: {
+  navegacionInferior: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 20,
+    justifyContent: 'space-around',
+    paddingVertical: 30,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    marginTop: 24,
   },
-  backButton: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#666',
-  },
-  submitButton: {
-    flex: 2,
-    backgroundColor: '#4A90E2',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFF',
+  botonNavegacion: {
+    padding: 10,
   },
 });
