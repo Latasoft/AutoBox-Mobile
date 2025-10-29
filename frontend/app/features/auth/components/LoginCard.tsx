@@ -1,313 +1,282 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 interface LoginCardProps {
-  onLogin: (username: string, password: string) => void;
-  isLoading?: boolean;
+  onLogin: (email: string, password: string) => Promise<void>;
+  loading?: boolean;
 }
 
-export default function LoginCard({ onLogin, isLoading = false }: LoginCardProps) {
-  const [username, setUsername] = useState('');
+export default function LoginCard({ onLogin, loading = false }: LoginCardProps) {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({ email: '', password: '' });
 
-  const handleLogin = () => {
-    if (!username || !password) {
-      Alert.alert('Error', 'Por favor, completa todos los campos.');
-      return;
-    }
-    onLogin(username, password);
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
+  const handleLogin = async () => {
+    // Reset errors
+    setErrors({ email: '', password: '' });
+
+    // Validations
+    let hasError = false;
+    const newErrors = { email: '', password: '' };
+
+    if (!email.trim()) {
+      newErrors.email = 'El email es requerido';
+      hasError = true;
+    } else if (!validateEmail(email)) {
+      newErrors.email = 'Email inválido';
+      hasError = true;
+    }
+
+    if (!password.trim()) {
+      newErrors.password = 'La contraseña es requerida';
+      hasError = true;
+    } else if (password.length < 6) {
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+      hasError = true;
+    }
+
+    if (hasError) {
+      setErrors(newErrors);
+      return;
+    }
+
+    // Call parent onLogin function
+    await onLogin(email, password);
   };
 
   return (
-    <View style={styles.container}>
-      {/* Fondo con imagen heroica */}
-      <View style={styles.heroBg}>
-        {/* Por ahora usamos un degradado en lugar de imagen */}
-        <View style={styles.heroGradient} />
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.gradient}
+      >
+        <View style={styles.card}>
+          {/* Icon */}
+          <View style={styles.iconContainer}>
+            <Ionicons name="car-sport" size={60} color="#667eea" />
+          </View>
 
-      {/* Card principal de login */}
-      <View style={styles.loginCard}>
-        {/* Logo flotante */}
-        <View style={styles.loginIcon}>
-          <Text style={styles.logoText}>WSA</Text>
-        </View>
+          {/* Title */}
+          <Text style={styles.title}>Bienvenido</Text>
+          <Text style={styles.subtitle}>Inicia sesión en AutoBox</Text>
 
-        {/* Encabezado */}
-        <View style={styles.headerSection}>
-          <Text style={styles.loginHeader}>Welcome</Text>
-          <Text style={styles.loginSubtitle}>Enter your credentials</Text>
-        </View>
-
-        {/* Formulario */}
-        <View style={styles.formSection}>
-          {/* Campo de usuario */}
+          {/* Email Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Username</Text>
+            <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Enter your username"
+              placeholder="Email"
               placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
               autoCapitalize="none"
-              autoCorrect={false}
+              editable={!loading}
             />
           </View>
+          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
-          {/* Campo de contraseña */}
+          {/* Password Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.passwordInputContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                placeholderTextColor="#999"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
+            <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Contraseña"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              editable={!loading}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons
+                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                size={20}
+                color="#666"
               />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={togglePasswordVisibility}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color="#51565d"
-                />
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           </View>
+          {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
 
-          {/* Botón de login */}
+          {/* Forgot Password Link */}
+          <Link href="/forgot-password" asChild>
+            <TouchableOpacity disabled={loading}>
+              <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>
+            </TouchableOpacity>
+          </Link>
+
+          {/* Login Button */}
           <TouchableOpacity
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+            style={[styles.loginButton, loading && styles.loginButtonDisabled]}
             onPress={handleLogin}
-            disabled={isLoading}
+            disabled={loading}
           >
-            <Ionicons name="chevron-forward" size={20} color="#ffffff" />
-            <Text style={styles.loginButtonText}>
-              {isLoading ? 'Signing In...' : 'Sign In'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Enlaces auxiliares */}
-        <View style={styles.auxLinks}>
-          <TouchableOpacity>
-            <Text style={styles.forgotPasswordText}>¿Forgot Your Password?</Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+            )}
           </TouchableOpacity>
 
-          {/* Imágenes de dispositivos */}
-          <View style={styles.deviceImages}>
-            <View style={styles.devicePlaceholder}>
-              <Text style={styles.deviceText}>💻</Text>
-            </View>
-            <View style={styles.devicePlaceholder}>
-              <Text style={styles.deviceText}>📱</Text>
-            </View>
+          {/* Register Link */}
+          <View style={styles.registerContainer}>
+            <Text style={styles.registerText}>¿No tienes cuenta? </Text>
+            <Link href="/register" asChild>
+              <TouchableOpacity disabled={loading}>
+                <Text style={styles.registerLink}>Regístrate</Text>
+              </TouchableOpacity>
+            </Link>
           </View>
         </View>
-      </View>
-    </View>
+      </LinearGradient>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f6f8',
-    position: 'relative',
   },
-  heroBg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '35%',
-    zIndex: 1,
-  },
-  heroGradient: {
+  gradient: {
     flex: 1,
-    backgroundColor: '#14345b', // Azul oscuro similar al del diseño original
-  },
-  loginCard: {
-    position: 'relative',
-    zIndex: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 16,
-    marginHorizontal: '5%',
-    marginTop: '28%',
-    maxWidth: 360,
-    alignSelf: 'center',
-    width: '90%',
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  loginIcon: {
-    position: 'absolute',
-    top: -40,
-    left: '50%',
-    marginLeft: -40,
-    width: 80,
-    height: 80,
-    backgroundColor: '#ffffff',
-    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 30,
+    width: '100%',
+    maxWidth: 400,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 10,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  logoText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#14345b',
-  },
-  headerSection: {
+  iconContainer: {
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 24,
+    marginBottom: 20,
+    backgroundColor: '#f0f0f0',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
-  loginHeader: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#14345b',
-    marginBottom: 4,
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 5,
   },
-  loginSubtitle: {
-    fontSize: 15,
-    color: '#51565d',
-    marginBottom: 0,
-  },
-  formSection: {
-    width: '100%',
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 30,
   },
   inputContainer: {
-    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    marginBottom: 5,
+    paddingHorizontal: 15,
+    backgroundColor: '#f9f9f9',
   },
-  inputLabel: {
-    fontSize: 16,
-    color: '#51565d',
-    marginBottom: 8,
-    fontWeight: '500',
+  inputIcon: {
+    marginRight: 10,
   },
   input: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-    paddingVertical: 12,
-    paddingHorizontal: 0,
-    fontSize: 16,
-    color: '#51565d',
-    backgroundColor: 'transparent',
-  },
-  passwordInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-    paddingVertical: 4,
-  },
-  passwordInput: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 0,
+    height: 50,
     fontSize: 16,
-    color: '#51565d',
-    backgroundColor: 'transparent',
+    color: '#333',
   },
-  eyeButton: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 40,
+  eyeIcon: {
+    padding: 5,
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 12,
+    marginBottom: 10,
+    marginLeft: 5,
+  },
+  forgotPassword: {
+    color: '#667eea',
+    fontSize: 14,
+    textAlign: 'right',
+    marginBottom: 20,
+    marginTop: 5,
   },
   loginButton: {
-    backgroundColor: '#77cdcd',
-    borderRadius: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
+    backgroundColor: '#667eea',
+    borderRadius: 10,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
-    shadowColor: '#000',
+    marginTop: 10,
+    shadowColor: '#667eea',
     shadowOffset: {
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
   loginButtonDisabled: {
     backgroundColor: '#ccc',
-    shadowOpacity: 0,
-    elevation: 0,
   },
   loginButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  auxLinks: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  forgotPasswordText: {
-    color: '#14345b',
-    fontSize: 15,
-    fontWeight: '500',
-    textDecorationLine: 'none',
-  },
-  deviceImages: {
+  registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 24,
-    gap: 20,
+    marginTop: 20,
   },
-  devicePlaceholder: {
-    width: 60,
-    height: 60,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0.9,
+  registerText: {
+    color: '#666',
+    fontSize: 14,
   },
-  deviceText: {
-    fontSize: 24,
+  registerLink: {
+    color: '#667eea',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

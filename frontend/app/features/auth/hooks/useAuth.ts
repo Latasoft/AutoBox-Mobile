@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { authService } from '../services/AuthService';
-import { LoginCredentials, User, AuthError } from '../types';
+import { AuthError, LoginCredentials, User } from '../types';
 
 export interface UseAuthReturn {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   error: string | null;
@@ -43,15 +43,21 @@ export function useAuth(): UseAuthReturn {
     }
   };
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = async (credentials: LoginCredentials): Promise<boolean> => {
     try {
       setIsLoading(true);
       setError(null);
       
-      await authService.login(credentials);
+      const response = await authService.login(credentials);
       
       // Actualizar estado después del login exitoso
-      await checkAuthStatus();
+      if (response.success && response.data && response.data.user) {
+        setIsAuthenticated(true);
+        setUser(response.data.user);
+        return true;
+      }
+      
+      return false;
       
     } catch (error) {
       const authError = error as AuthError;

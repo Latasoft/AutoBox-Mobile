@@ -13,6 +13,7 @@
     "concurrently": "^8.2.0"
   },
   "dependencies": {
+    "@react-native-community/datetimepicker": "^8.5.0",
     "expo-image-picker": "^17.0.8"
   }
 }

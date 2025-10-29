@@ -4,17 +4,22 @@ export interface LoginCredentials {
 }
 
 export interface LoginResponse {
+  success: boolean;
   message: string;
-  token: string;
+  data?: {
+    user: User;
+  };
 }
 
 export interface User {
-  _id: string;
-  username: string;
-  tipo_usuario: 'ADMINISTRADOR' | 'CLIENTE' | 'TRABAJADOR' | 'ASISTENTE' | 'ADMINISTRATIVO';
+  id: number;
   email: string;
-  puede_crear_nave: boolean;
-  empresa_cliente?: string;
+  role: string;
+  permissions: any;
+  name: string;
+  balance: number;
+  isActive: boolean;
+  emailVerified: boolean;
 }
 
 export interface AuthError {

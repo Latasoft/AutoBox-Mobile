@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
+  Alert,
   Dimensions,
   SafeAreaView,
   ScrollView,
@@ -13,123 +14,67 @@ import {
 import BotonAccion from '../components/BotonAccion';
 import GrillaAutos from '../components/GrillaAutos';
 import SliderMarcas from '../components/SliderMarcas';
-import { Auto, MarcaAuto, Usuario } from '../types/auto';
+import { useAuth } from '../contexts/AuthContext';
+import { Auto, MarcaAuto } from '../types/auto';
 
 const { width } = Dimensions.get('window');
 
-export default function Home() {
+export default function PantallaInicio() {
   const router = useRouter();
-  const [usuario, setUsuario] = useState<Usuario>({
-    id: '1',
-    nombre: 'USUARIO',
-    saldo: 1230000,
-  });
+  const { user, logout } = useAuth();
 
   const [autos, setAutos] = useState<Auto[]>([]);
   const [marcas, setMarcas] = useState<MarcaAuto[]>([]);
   const [seccionSeleccionada, setSeccionSeleccionada] = useState('en-venta');
 
-  // Simulacion datos de la base de datos
-  useEffect(() => {
-    cargarDatos();
-  }, []);
+  // Cargar datos cada vez que se enfoca la pantalla
+  useFocusEffect(
+    useCallback(() => {
+      cargarDatos();
+    }, [])
+  );
 
   const cargarDatos = async () => {
-    // Conectar con tu API de PostgreSQL
-    const autosSimulados: Auto[] = [
-      {
-        id: '1',
-        marca: 'Mazda',
-        modelo: '2011 RM',
-        patente: 'BBCD12',
-        año: 2011,
-        precio: 5500000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-        kilometraje: 80000,
+    try {
+      // Cargar publicaciones del usuario desde la base de datos
+      const response = await fetch('http://localhost:3000/api/publicaciones');
+      const publicaciones = await response.json();
+      
+      // Convertir publicaciones a formato Auto
+      const autosDesdeDB: Auto[] = publicaciones.map((pub: any, index: number) => ({
+        id: pub.id_publicacion.toString(),
+        marca: pub.marca || 'Sin marca',
+        modelo: pub.modelo || 'Sin modelo',
+        año: pub.año || new Date().getFullYear(),
+        precio: pub.precio_venta || 0,
+        imagen: `https://via.placeholder.com/200x150/4CAF50/white?text=${encodeURIComponent(pub.marca || 'Auto')}+${encodeURIComponent(pub.modelo || '')}`,
+        kilometraje: pub.kilometraje || 0,
         esFavorito: false,
-        tieneInspeccion: true,
-        esEconomico: true,
-      },
-      {
-        id: '2',
-        marca: 'Mazda',
-        modelo: '2011 RM',
-        patente: 'CDEF34',
-        año: 2011,
-        precio: 5500000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-        kilometraje: 75000,
-        esFavorito: true,
-        tieneInspeccion: true,
-        esEconomico: false,
-      },
-      {
-        id: '3',
-        marca: 'Mazda',
-        modelo: '2013 Sport',
-        patente: 'GHIJ56',
-        año: 2013,
-        precio: 6200000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-        kilometraje: 65000,
-        esFavorito: false,
-        tieneInspeccion: true,
-        esEconomico: true,
-      },
-      {
-        id: '4',
-        marca: 'Chevrolet',
-        modelo: 'Spark 2015',
-        patente: 'KLMN78',
-        año: 2015,
-        precio: 4800000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-        kilometraje: 90000,
-        esFavorito: true,
-        tieneInspeccion: false,
-        esEconomico: true,
-      },
-      {
-        id: '5',
-        marca: 'Hyundai',
-        modelo: 'Accent 2018',
-        patente: 'OPQR90',
-        año: 2018,
-        precio: 7500000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-        kilometraje: 45000,
-        esFavorito: false,
-        tieneInspeccion: true,
-        esEconomico: false,
-      },
-      {
-        id: '6',
-        marca: 'Nissan',
-        modelo: 'Versa 2016',
-        patente: 'STUV12',
-        año: 2016,
-        precio: 6800000,
-        imagen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-        kilometraje: 55000,
-        esFavorito: true,
-        tieneInspeccion: true,
-        esEconomico: true,
-      },
-    ];
+        tieneInspeccion: pub.tipo_publicacion === 'con_revision',
+        esEconomico: pub.precio_venta < 6000000,
+        patente: pub.patente,
+      }));
 
-    const marcasSimuladas: MarcaAuto[] = [
-      { id: '1', nombre: 'Mazda', logo: 'car' },
-      { id: '2', nombre: 'Chevrolet', logo: 'car' },
-      { id: '3', nombre: 'Hyundai', logo: 'car' },
-      { id: '4', nombre: 'Nissan', logo: 'car' },
-      { id: '5', nombre: 'Suzuki', logo: 'car' },
-      { id: '6', nombre: 'Peugeot', logo: 'car' },
-      { id: '7', nombre: 'Ford', logo: 'car' },
-      { id: '8', nombre: 'KIA', logo: 'car' },
-    ];
+      console.log('Publicaciones cargadas:', autosDesdeDB.length);
 
-    setAutos(autosSimulados);
-    setMarcas(marcasSimuladas);
+      // Solo usar publicaciones de la base de datos
+      setAutos(autosDesdeDB);
+
+      // Extraer marcas únicas de las publicaciones
+      const marcasUnicas = Array.from(new Set(autosDesdeDB.map(auto => auto.marca)))
+        .filter(marca => marca && marca !== 'Sin marca')
+        .map((marca, index) => ({
+          id: (index + 1).toString(),
+          nombre: marca,
+          logo: 'car' as const
+        }));
+
+      setMarcas(marcasUnicas);
+    } catch (error) {
+      console.error('Error cargando publicaciones:', error);
+      setAutos([]);
+      setMarcas([]);
+    }
   };
 
   const obtenerAutosFiltrados = () => {
@@ -150,12 +95,33 @@ export default function Home() {
   };
 
   const manejarRevisarInspeccion = () => {
-    console.log('Revisar inspección');
-    // Revisar inspección
+    router.push('/inspecciones');
   };
 
   const manejarVenderAuto = () => {
+    console.log('Vender auto - Navegando a vender-auto');
     router.push('/vender-auto');
+  };
+
+  const manejarCerrarSesion = () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro que deseas cerrar sesión?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/login');
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -165,21 +131,27 @@ export default function Home() {
         <View style={estilos.encabezado}>
           <View style={estilos.infoUsuario}>
             <View style={estilos.avatar}>
-              <Ionicons name="person" size={30} color="#4CAF50" />
+              <Ionicons name="person-circle" size={50} color="#4CAF50" />
             </View>
             <View>
-              <Text style={estilos.nombreUsuario}>{usuario.nombre}</Text>
+              <Text style={estilos.nombreUsuario}>{user?.name || 'Usuario'}</Text>
               <Text style={estilos.saldoUsuario}>
-                SALDO $ {usuario.saldo.toLocaleString()}
+                💰 SALDO $ {user?.balance?.toLocaleString() || '0'}
               </Text>
             </View>
           </View>
           <View style={estilos.accionesEncabezado}>
             <TouchableOpacity style={estilos.botonMensajes}>
-              <Ionicons name="chatbubble-outline" size={24} color="#4CAF50" />
+              <Ionicons name="chatbubbles" size={28} color="#4CAF50" />
               <View style={estilos.insigniaMensajes}>
                 <Text style={estilos.textoInsigniaMensajes}>3</Text>
               </View>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={estilos.botonLogout}
+              onPress={manejarCerrarSesion}
+            >
+              <Ionicons name="log-out-outline" size={28} color="#FF5722" />
             </TouchableOpacity>
           </View>
         </View>
@@ -288,9 +260,15 @@ const estilos = StyleSheet.create({
     fontWeight: '600',
   },
   accionesEncabezado: {
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   botonMensajes: {
+    padding: 8,
+    position: 'relative',
+  },
+  botonLogout: {
     padding: 8,
   },
   insigniaMensajes: {

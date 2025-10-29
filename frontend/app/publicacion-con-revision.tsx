@@ -1,56 +1,128 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { generarRangoAños, marcasAutos } from '../constants/marcas-autos';
-import { regionesChile } from '../constants/regiones-chile';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function PublicacionPropia() {
+interface Autobox {
+  id_autobox: number;
+  nombre: string;
+  direccion: string;
+  ciudad: string;
+}
+
+interface Horario {
+  id_horario: number;
+  hora: string;
+}
+
+export default function PublicacionConRevision() {
   const router = useRouter();
   const { user } = useAuth();
   
+  const esDiaLaboral = (fecha: Date): boolean => {
+    const dia = fecha.getDay();
+    return dia >= 1 && dia <= 5; // Lunes (1) a Viernes (5)
+  };
+
+  const obtenerProximoDiaLaboral = (): Date => {
+    const hoy = new Date();
+    let fecha = new Date(hoy);
+    
+    // Si hoy es laborable, usar hoy
+    if (esDiaLaboral(fecha)) {
+      return fecha;
+    }
+    
+    // Buscar el próximo día laborable
+    while (!esDiaLaboral(fecha)) {
+      fecha.setDate(fecha.getDate() + 1);
+    }
+    
+    return fecha;
+  };
+
+  const obtenerFechaMaxima = (): Date => {
+    const hoy = new Date();
+    const fechaMaxima = new Date(hoy);
+    fechaMaxima.setDate(hoy.getDate() + 14); // 2 semanas
+    return fechaMaxima;
+  };
+  
   const [formData, setFormData] = useState({
-    precioVenta: '',
     patente: '',
     marca: '',
     modelo: '',
     año: '',
-    kilometraje: '',
-    region: '',
-    ciudad: '',
-    observaciones: '',
-    videoAdjuntado: false,
-    videoUri: '',
-    videoNombre: '',
+    fecha: '',
+    hora: '',
+    autobox: '',
+    autoboxId: null as number | null,
+    rut: '',
+    fono: '',
+    mail: '',
+    aceptaTerminos: false,
   });
 
-  const [mostrarRegiones, setMostrarRegiones] = useState(false);
-  const [mostrarCiudades, setMostrarCiudades] = useState(false);
+  const [autoboxes, setAutoboxes] = useState<Autobox[]>([]);
+  const [horarios, setHorarios] = useState<Horario[]>([]);
+  const [mostrarAutoboxes, setMostrarAutoboxes] = useState(false);
+  const [mostrarHorarios, setMostrarHorarios] = useState(false);
+  const [mostrarCalendario, setMostrarCalendario] = useState(false);
   const [mostrarMarcas, setMostrarMarcas] = useState(false);
   const [mostrarAños, setMostrarAños] = useState(false);
-  const [ciudadesDisponibles, setCiudadesDisponibles] = useState<string[]>([]);
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(obtenerProximoDiaLaboral());
 
-  const seleccionarRegion = (region: string, ciudades: string[]) => {
-    setFormData({...formData, region, ciudad: ''});
-    setCiudadesDisponibles(ciudades);
-    setMostrarRegiones(false);
+  useEffect(() => {
+    cargarAutoboxes();
+    cargarHorarios();
+  }, []);
+
+  const cargarAutoboxes = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/autoboxes');
+      const data = await response.json();
+      setAutoboxes(data);
+    } catch (error) {
+      console.error('Error cargando autoboxes:', error);
+    }
   };
 
-  const seleccionarCiudad = (ciudad: string) => {
-    setFormData({...formData, ciudad});
-    setMostrarCiudades(false);
+  const cargarHorarios = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/horarios');
+      const data = await response.json();
+      setHorarios(data);
+    } catch (error) {
+      console.error('Error cargando horarios:', error);
+    }
+  };
+
+  const seleccionarAutobox = (autobox: Autobox) => {
+    setFormData({
+      ...formData, 
+      autobox: autobox.nombre,
+      autoboxId: autobox.id_autobox
+    });
+    setMostrarAutoboxes(false);
+  };
+
+  const seleccionarHorario = (horario: Horario) => {
+    setFormData({...formData, hora: horario.hora});
+    setMostrarHorarios(false);
   };
 
   const seleccionarMarca = (marca: string) => {
@@ -63,38 +135,32 @@ export default function PublicacionPropia() {
     setMostrarAños(false);
   };
 
-  const seleccionarVideo = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'video/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const video = result.assets[0];
-        
-        // Verificar duración (máximo 60 segundos)
-        // En producción, necesitarías usar expo-av para verificar duración
-        
-        setFormData({
-          ...formData, 
-          videoAdjuntado: true,
-          videoUri: video.uri,
-          videoNombre: video.name || 'video.mp4'
-        });
-        Alert.alert('Éxito', `Video "${video.name}" adjuntado correctamente`);
-      } else {
-        Alert.alert('Cancelado', 'No se seleccionó ningún video');
+  const onCambiarFecha = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setMostrarCalendario(false);
+    }
+    
+    if (selectedDate) {
+      setFechaSeleccionada(selectedDate);
+      const fechaFormateada = selectedDate.toISOString().split('T')[0];
+      setFormData({...formData, fecha: fechaFormateada});
+      
+      if (Platform.OS === 'ios') {
+        setMostrarCalendario(false);
       }
-    } catch (error) {
-      console.error('Error seleccionando video:', error);
-      Alert.alert('Error', 'No se pudo seleccionar el video');
     }
   };
 
-  const handlePublicar = async () => {
-    if (!formData.precioVenta || !formData.patente || !formData.marca || !formData.modelo || !formData.año || !formData.kilometraje || !formData.region || !formData.ciudad) {
-      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
+  const handleSolicitar = async () => {
+    if (!formData.patente || !formData.marca || !formData.modelo || !formData.año || 
+        !formData.fecha || !formData.hora || !formData.autobox || 
+        !formData.rut || !formData.fono || !formData.mail) {
+      Alert.alert('Error', 'Por favor completa todos los campos');
+      return;
+    }
+
+    if (!formData.aceptaTerminos) {
+      Alert.alert('Error', 'Debes aceptar los términos y condiciones');
       return;
     }
 
@@ -106,67 +172,65 @@ export default function PublicacionPropia() {
         },
         body: JSON.stringify({
           id_usuario: user?.id,
-          tipo_publicacion: 'propia',
-          precio_venta: parseFloat(formData.precioVenta),
+          tipo_publicacion: 'con_revision',
           patente: formData.patente,
           marca: formData.marca,
           modelo: formData.modelo,
           año: parseInt(formData.año),
-          kilometraje: parseInt(formData.kilometraje),
-          region: formData.region,
-          ciudad: formData.ciudad,
-          observaciones: formData.observaciones,
-          video_url: formData.videoAdjuntado ? formData.videoUri : null,
+          fecha_revision: formData.fecha,
+          hora_revision: formData.hora,
+          id_autobox: formData.autoboxId,
+          rut: formData.rut,
+          telefono: formData.fono,
+          email: formData.mail,
         }),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        // Redireccionar inmediatamente
+      if (response.ok) {
         router.push('/home');
-        // Mostrar Alert después de navegar
         setTimeout(() => {
           Alert.alert(
-            '✅ Publicación Exitosa',
-            'Tu auto ha sido publicado correctamente y aparecerá en "MIS AUTOS EN VENTA"'
+            'Solicitud Enviada',
+            'Tu solicitud de revisión mecánica ha sido enviada exitosamente.',
+            [{ text: 'OK' }]
           );
         }, 500);
       } else {
-        Alert.alert('❌ Error', 'No se pudo publicar el auto. Intenta nuevamente.');
+        Alert.alert('Error', data.error || 'No se pudo guardar la solicitud');
       }
     } catch (error) {
-      console.error('Error publicando:', error);
-      Alert.alert('❌ Error', 'Ocurrió un error al publicar el auto. Verifica tu conexión.');
+      console.error('Error guardando solicitud:', error);
+      Alert.alert('Error', 'Ocurrió un error al guardar la solicitud');
     }
   };
 
   return (
     <SafeAreaView style={estilos.contenedor}>
       <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Logo y título */}
         <View style={estilos.encabezado}>
           <View style={estilos.logoContainer}>
             <Text style={estilos.logo}>
               <Text style={estilos.textoGood}>Good</Text>
               <Text style={estilos.textoCars}>Cars</Text>
             </Text>
+            <Ionicons name="car-sport" size={40} color="#4CAF50" />
           </View>
           
-          <Text style={estilos.titulo}>INGRESAR INFORMACION{'\n'}DEL AUTO</Text>
+          <Text style={estilos.titulo}>SOLICITAR MECANICO</Text>
+          <Text style={estilos.subtitulo}>
+            DESCRIPCION DEL SERVICIO DE{'\n'}REVISION AUTOMOTRIZ
+          </Text>
+          
+          <TouchableOpacity style={estilos.botonPlay}>
+            <Ionicons name="play-circle" size={50} color="#4CAF50" />
+          </TouchableOpacity>
         </View>
 
+        {/* Formulario */}
         <View style={estilos.formulario}>
-          <View style={estilos.fila}>
-            <Text style={estilos.label}>PRECIO VENTA</Text>
-            <TextInput
-              style={estilos.input}
-              value={formData.precioVenta}
-              onChangeText={(text) => setFormData({...formData, precioVenta: text})}
-              placeholder=""
-              keyboardType="numeric"
-            />
-          </View>
-
           <View style={estilos.fila}>
             <Text style={estilos.label}>PATENTE</Text>
             <TextInput
@@ -213,99 +277,100 @@ export default function PublicacionPropia() {
             </TouchableOpacity>
           </View>
 
+          <View style={estilos.filaDoble}>
+            <View style={estilos.campoMitad}>
+              <Text style={estilos.label}>FECHA</Text>
+              <TouchableOpacity 
+                style={estilos.selector}
+                onPress={() => setMostrarCalendario(true)}
+              >
+                <Text style={estilos.textoSelector}>
+                  {formData.fecha || 'SELECCIONAR'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={estilos.campoMitad}>
+              <Text style={estilos.label}>HORA</Text>
+              <TouchableOpacity 
+                style={estilos.selector}
+                onPress={() => setMostrarHorarios(true)}
+              >
+                <Text style={estilos.textoSelector}>
+                  {formData.hora || 'SELECCIONAR'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <View style={estilos.fila}>
-            <Text style={estilos.label}>KILOMETRAJE</Text>
+            <Text style={estilos.label}>AUTOBOX</Text>
+            <TouchableOpacity 
+              style={estilos.selectorAutobox}
+              onPress={() => setMostrarAutoboxes(true)}
+            >
+              <Text style={estilos.textoSelector}>
+                {formData.autobox || 'SELECCIONAR'}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#4CAF50" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={estilos.fila}>
+            <Text style={estilos.label}>RUT</Text>
             <TextInput
               style={estilos.input}
-              value={formData.kilometraje}
-              onChangeText={(text) => setFormData({...formData, kilometraje: text})}
+              value={formData.rut}
+              onChangeText={(text) => setFormData({...formData, rut: text})}
               placeholder=""
               keyboardType="numeric"
             />
           </View>
 
           <View style={estilos.fila}>
-            <Text style={estilos.label}>REGION</Text>
-            <TouchableOpacity 
-              style={estilos.selector}
-              onPress={() => setMostrarRegiones(true)}
-            >
-              <Text style={estilos.textoSelector}>
-                {formData.region || 'SELECCIONAR'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={estilos.fila}>
-            <Text style={estilos.label}>CIUDAD</Text>
-            <TouchableOpacity 
-              style={estilos.selector}
-              onPress={() => {
-                if (!formData.region) {
-                  Alert.alert('Aviso', 'Primero selecciona una región');
-                  return;
-                }
-                setMostrarCiudades(true);
-              }}
-            >
-              <Text style={estilos.textoSelector}>
-                {formData.ciudad || 'SELECCIONAR'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={estilos.fila}>
-            <Text style={estilos.label}>OBSERVACIONES</Text>
+            <Text style={estilos.label}>FONO</Text>
             <TextInput
               style={estilos.input}
-              value={formData.observaciones}
-              onChangeText={(text) => setFormData({...formData, observaciones: text})}
+              value={formData.fono}
+              onChangeText={(text) => setFormData({...formData, fono: text})}
               placeholder=""
+              keyboardType="phone-pad"
             />
           </View>
 
-          <View style={estilos.botonesVideo}>
-            <TouchableOpacity 
-              style={estilos.botonVideo}
-              onPress={seleccionarVideo}
-            >
-              <Ionicons name="cloud-upload-outline" size={40} color="#999" />
-              <Text style={estilos.textoBotonVideo}>ADJUNTAR{'\n'}VIDEO</Text>
-              <Text style={estilos.textoMax}>(max 60 seg)</Text>
-            </TouchableOpacity>
+          <View style={estilos.fila}>
+            <Text style={estilos.label}>MAIL</Text>
+            <TextInput
+              style={estilos.input}
+              value={formData.mail}
+              onChangeText={(text) => setFormData({...formData, mail: text})}
+              placeholder=""
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
           </View>
 
-          {formData.videoAdjuntado && (
-            <View style={estilos.vistaPreviewVideo}>
-              <View style={estilos.videoPreviewContainer}>
-                <Ionicons name="videocam" size={60} color="#4CAF50" />
-                <Text style={estilos.videoPreviewNombre}>
-                  {formData.videoNombre || 'Video adjuntado'}
-                </Text>
-                <TouchableOpacity 
-                  style={estilos.botonEliminarVideo}
-                  onPress={() => setFormData({
-                    ...formData, 
-                    videoAdjuntado: false, 
-                    videoUri: '', 
-                    videoNombre: ''
-                  })}
-                >
-                  <Ionicons name="trash-outline" size={20} color="#FF5722" />
-                  <Text style={estilos.textoEliminarVideo}>Eliminar video</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
+          {/* Checkbox términos */}
           <TouchableOpacity 
-            style={estilos.botonPublicar}
-            onPress={handlePublicar}
+            style={estilos.terminosContainer}
+            onPress={() => setFormData({...formData, aceptaTerminos: !formData.aceptaTerminos})}
           >
-            <Text style={estilos.textoBoton}>PUBLICAR</Text>
+            <View style={[estilos.checkbox, formData.aceptaTerminos && estilos.checkboxMarcado]}>
+              {formData.aceptaTerminos && <Ionicons name="checkmark" size={16} color="#4CAF50" />}
+            </View>
+            <Text style={estilos.textoTerminos}>Acepto términos y condiciones</Text>
+          </TouchableOpacity>
+
+          {/* Botón solicitar */}
+          <TouchableOpacity 
+            style={estilos.botonSolicitar}
+            onPress={handleSolicitar}
+          >
+            <Text style={estilos.textoBoton}>SOLICITAR</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Navegación inferior */}
         <View style={estilos.navegacionInferior}>
           <TouchableOpacity 
             style={estilos.botonNavegacion}
@@ -321,30 +386,33 @@ export default function PublicacionPropia() {
           </TouchableOpacity>
         </View>
 
-        {/* Modal Regiones */}
+        {/* Modal Autoboxes */}
         <Modal
-          visible={mostrarRegiones}
+          visible={mostrarAutoboxes}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setMostrarRegiones(false)}
+          onRequestClose={() => setMostrarAutoboxes(false)}
         >
           <View style={estilos.modalContainer}>
             <View style={estilos.modalContent}>
-              <Text style={estilos.modalTitulo}>Seleccionar Región</Text>
+              <Text style={estilos.modalTitulo}>Seleccionar AutoBox</Text>
               <ScrollView style={estilos.modalScroll}>
-                {regionesChile.map((region, index) => (
+                {autoboxes.map((autobox) => (
                   <TouchableOpacity
-                    key={index}
+                    key={autobox.id_autobox}
                     style={estilos.modalItem}
-                    onPress={() => seleccionarRegion(region.nombre, region.ciudades)}
+                    onPress={() => seleccionarAutobox(autobox)}
                   >
-                    <Text style={estilos.modalItemTexto}>{region.nombre}</Text>
+                    <Text style={estilos.modalItemTexto}>{autobox.nombre}</Text>
+                    <Text style={estilos.modalItemSubtexto}>
+                      {autobox.direccion}, {autobox.ciudad}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
               <TouchableOpacity
                 style={estilos.modalBotonCerrar}
-                onPress={() => setMostrarRegiones(false)}
+                onPress={() => setMostrarAutoboxes(false)}
               >
                 <Text style={estilos.modalBotonTexto}>Cerrar</Text>
               </TouchableOpacity>
@@ -352,30 +420,30 @@ export default function PublicacionPropia() {
           </View>
         </Modal>
 
-        {/* Modal Ciudades */}
+        {/* Modal Horarios */}
         <Modal
-          visible={mostrarCiudades}
+          visible={mostrarHorarios}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setMostrarCiudades(false)}
+          onRequestClose={() => setMostrarHorarios(false)}
         >
           <View style={estilos.modalContainer}>
             <View style={estilos.modalContent}>
-              <Text style={estilos.modalTitulo}>Seleccionar Ciudad</Text>
+              <Text style={estilos.modalTitulo}>Seleccionar Horario</Text>
               <ScrollView style={estilos.modalScroll}>
-                {ciudadesDisponibles.map((ciudad, index) => (
+                {horarios.map((horario) => (
                   <TouchableOpacity
-                    key={index}
+                    key={horario.id_horario}
                     style={estilos.modalItem}
-                    onPress={() => seleccionarCiudad(ciudad)}
+                    onPress={() => seleccionarHorario(horario)}
                   >
-                    <Text style={estilos.modalItemTexto}>{ciudad}</Text>
+                    <Text style={estilos.modalItemTexto}>{horario.hora}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
               <TouchableOpacity
                 style={estilos.modalBotonCerrar}
-                onPress={() => setMostrarCiudades(false)}
+                onPress={() => setMostrarHorarios(false)}
               >
                 <Text style={estilos.modalBotonTexto}>Cerrar</Text>
               </TouchableOpacity>
@@ -444,6 +512,18 @@ export default function PublicacionPropia() {
             </View>
           </View>
         </Modal>
+
+        {/* DateTimePicker */}
+        {mostrarCalendario && (
+          <DateTimePicker
+            value={fechaSeleccionada}
+            mode="date"
+            display="default"
+            onChange={onCambiarFecha}
+            minimumDate={obtenerProximoDiaLaboral()}
+            maximumDate={obtenerFechaMaxima()}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -461,11 +541,14 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
-    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   logo: {
     fontSize: 40,
     fontWeight: 'bold',
+    marginRight: 10,
   },
   textoGood: {
     color: '#333',
@@ -477,7 +560,15 @@ const estilos = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 10,
+  },
+  subtitulo: {
+    fontSize: 12,
+    color: '#333',
     textAlign: 'center',
+    marginBottom: 15,
+  },
+  botonPlay: {
     marginBottom: 10,
   },
   formulario: {
@@ -486,6 +577,15 @@ const estilos = StyleSheet.create({
   },
   fila: {
     marginBottom: 15,
+  },
+  filaDoble: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    gap: 10,
+  },
+  campoMitad: {
+    flex: 1,
   },
   label: {
     fontSize: 14,
@@ -508,91 +608,50 @@ const estilos = StyleSheet.create({
     padding: 10,
     backgroundColor: '#fff',
   },
+  selectorAutobox: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 4,
+    padding: 10,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   textoSelector: {
     fontSize: 14,
     color: '#999',
   },
-  botonesVideo: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginVertical: 20,
-  },
-  botonVideo: {
-    borderWidth: 2,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 20,
-    alignItems: 'center',
-    width: 150,
-  },
-  textoBotonVideo: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  textoMax: {
-    fontSize: 10,
-    color: '#999',
-    marginTop: 5,
-  },
-  videoAdjuntado: {
+  terminosContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 15,
-  },
-  textoVideoAdjuntado: {
-    fontSize: 14,
-    color: '#4CAF50',
-    marginLeft: 8,
-  },
-  vistaPreviewVideo: {
     marginVertical: 20,
-    alignItems: 'center',
   },
-  videoPreviewContainer: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
+  checkbox: {
+    width: 24,
+    height: 24,
     borderWidth: 2,
     borderColor: '#4CAF50',
-    width: '90%',
-  },
-  videoPreviewNombre: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  botonEliminarVideo: {
-    flexDirection: 'row',
+    borderRadius: 4,
+    marginRight: 10,
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  checkboxMarcado: {
     backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FF5722',
-    gap: 6,
   },
-  textoEliminarVideo: {
-    color: '#FF5722',
+  textoTerminos: {
     fontSize: 14,
-    fontWeight: '600',
+    color: '#4CAF50',
   },
-  botonPublicar: {
+  botonSolicitar: {
     backgroundColor: '#fff',
     borderWidth: 2,
     borderColor: '#ccc',
     borderRadius: 25,
     paddingVertical: 12,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
   textoBoton: {
     fontSize: 16,
@@ -640,6 +699,11 @@ const estilos = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     fontWeight: '500',
+  },
+  modalItemSubtexto: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
   modalBotonCerrar: {
     backgroundColor: '#4CAF50',

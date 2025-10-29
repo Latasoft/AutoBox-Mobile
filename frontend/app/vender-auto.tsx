@@ -1,117 +1,154 @@
-import { Link, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ThemedView } from '../components/themed-view';
+import {
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
-// Componente principal para la pantalla de vender auto
 export default function VenderAuto() {
-  // Función para navegar a la pantalla de publicación con revisión mecánica
-  const navegarAPublicacionConRevision = () => {
-    router.push('/publicacion-revision');
-  };
-
-  // Función para navegar a la pantalla de publicación propia
-  const navegarAPublicacionPropia = () => {
-    router.push('/publicacion-propia');
-  };
-
-  // Función para navegar a la pantalla de subasta
-  const navegarASubasta = () => {
-    router.push('/subastar-auto');
-  };
+  const router = useRouter();
 
   return (
-    <ThemedView style={styles.container}>
-      {/* Logo GoodCars */}
-      <Text style={styles.logo}>GoodCars</Text>
+    <SafeAreaView style={estilos.contenedor}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Logo */}
+        <View style={estilos.encabezadoLogo}>
+          <Text style={estilos.tituloGoodCars}>
+            <Text style={estilos.textoGood}>Good</Text>
+            <Text style={estilos.textoCars}>Cars</Text>
+          </Text>
+        </View>
 
-      {/* Botones de opciones */}
-      <Pressable 
-        style={styles.optionButton}
-        onPress={navegarAPublicacionConRevision}
-      >
-        <Text style={styles.optionText}>PUBLICACIÓN CON REVISIÓN MECÁNICA</Text>
-      </Pressable>
+        {/* Opciones de publicación */}
+        <View style={estilos.contenedorOpciones}>
+          {/* Opción 1: Publicación con revisión mecánica */}
+          <TouchableOpacity 
+            style={estilos.tarjetaOpcion}
+            onPress={() => router.push('/publicacion-con-revision')}
+          >
+            <View style={estilos.contenidoTarjeta}>
+              <View style={estilos.iconosContainer}>
+                <Text style={estilos.emojiIcono}>👨‍🔧</Text>
+                <Text style={estilos.emojiIcono}>🚗</Text>
+              </View>
+              <Text style={estilos.textoOpcion}>PUBLICACIÓN CON{'\n'}REVISIÓN MECÁNICA</Text>
+            </View>
+          </TouchableOpacity>
 
-      <Pressable 
-        style={styles.optionButton}
-        onPress={navegarAPublicacionPropia}
-      >
-        <Text style={styles.optionText}>PUBLICACIÓN PROPIA</Text>
-      </Pressable>
+          {/* Opción 2: Publicación propia */}
+          <TouchableOpacity 
+            style={estilos.tarjetaOpcion}
+            onPress={() => router.push('/publicacion-propia')}
+          >
+            <View style={estilos.contenidoTarjeta}>
+              <View style={estilos.iconosContainer}>
+                <Text style={estilos.emojiIcono}>🚗</Text>
+              </View>
+              <Text style={estilos.textoOpcion}>PUBLICACIÓN{'\n'}PROPIA</Text>
+            </View>
+          </TouchableOpacity>
 
-      <Pressable 
-        style={styles.optionButton}
-        onPress={navegarASubasta}
-      >
-        <Text style={styles.optionText}>SUBASTAR MI AUTO</Text>
-      </Pressable>
+          {/* Opción 3: Subastar mi auto */}
+          <TouchableOpacity 
+            style={estilos.tarjetaOpcion}
+            onPress={() => router.push('/subastar-auto')}
+          >
+            <View style={estilos.contenidoTarjeta}>
+              <View style={estilos.iconosContainer}>
+                <Text style={estilos.emojiIcono}>🚗</Text>
+                <Text style={estilos.emojiIcono}>🔨</Text>
+              </View>
+              <Text style={estilos.textoOpcion}>SUBASTAR{'\n'}MI AUTO</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
 
-      {/* Botones de navegación inferior */}
-      <View style={styles.navigationButtons}>
-        <Link href="/home" asChild>
-          <Pressable style={styles.navButton}>
-            <Text>←</Text>
-          </Pressable>
-        </Link>
-        <Link href="/home" asChild>
-          <Pressable style={styles.navButton}>
-            <Text>⌂</Text>
-          </Pressable>
-        </Link>
-      </View>
-    </ThemedView>
+        {/* Navegación inferior */}
+        <View style={estilos.navegacionInferior}>
+          <TouchableOpacity 
+            style={estilos.botonNavegacion}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back-circle" size={50} color="#4CAF50" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={estilos.botonNavegacion}
+            onPress={() => router.push('/home')}
+          >
+            <Ionicons name="home" size={50} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// Estilos para la pantalla
-const styles = StyleSheet.create({
-  container: {
+const estilos = StyleSheet.create({
+  contenedor: {
     flex: 1,
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 40,
-  },
-  optionButton: {
-    width: '100%',
-    padding: 15,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    marginVertical: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-  optionText: {
-    fontSize: 16,
+  encabezadoLogo: {
+    paddingTop: 40,
+    paddingBottom: 30,
+    alignItems: 'center',
+  },
+  tituloGoodCars: {
+    fontSize: 42,
+    fontWeight: 'bold',
+  },
+  textoGood: {
     color: '#333',
-    textAlign: 'center',
   },
-  navigationButtons: {
-    position: 'absolute',
-    bottom: 20,
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
+  textoCars: {
+    color: '#4CAF50',
+  },
+  contenedorOpciones: {
     paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  navButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#4CAF50',
-    borderRadius: 20,
-    justifyContent: 'center',
+  tarjetaOpcion: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  contenidoTarjeta: {
+    flexDirection: 'row',
     alignItems: 'center',
+    padding: 24,
+  },
+  iconosContainer: {
+    flexDirection: 'row',
+    marginRight: 20,
+    gap: 5,
+  },
+  emojiIcono: {
+    fontSize: 40,
+  },
+  textoOpcion: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+    lineHeight: 22,
+  },
+  navegacionInferior: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 30,
+    paddingTop: 50,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    marginTop: 40,
+  },
+  botonNavegacion: {
+    padding: 10,
   },
 });

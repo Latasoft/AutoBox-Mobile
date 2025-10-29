@@ -1,16 +1,15 @@
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  StyleSheet,
-  SafeAreaView,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
   ScrollView,
+  StyleSheet,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useAuth } from '../../../../contexts/AuthContext';
 import LoginCard from '../components/LoginCard';
-import { useAuth } from '../hooks/useAuth';
-import { AuthError } from '../types';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -18,28 +17,42 @@ export default function LoginScreen() {
 
   const handleLogin = async (username: string, password: string) => {
     try {
-      await login({ username, password });
+      console.log('🔐 Intentando login con:', username);
+      await login(username, password);
+      console.log('✅ Login exitoso');
+      // La redirección se maneja automáticamente por el AuthContext
+    } catch (error: any) {
+      console.error('❌ Error en login:', error);
       
-      // Si el login es exitoso, navegar a la pantalla principal
-      Alert.alert(
-        'Éxito',
-        'Inicio de sesión exitoso',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/'),
-          },
-        ]
-      );
-    } catch (error) {
-      // El error ya se maneja en el hook useAuth
-      // Aquí solo mostramos una alerta al usuario
-      const authError = error as AuthError;
-      Alert.alert(
-        'Error de autenticación',
-        authError.message || 'No se pudo iniciar sesión. Verifica tus credenciales.',
-        [{ text: 'OK' }]
-      );
+      // Determinar el mensaje de error específico
+      let errorTitle = '🚫 Error de autenticación';
+      let errorMessage = 'No se pudo iniciar sesión. Verifica tus credenciales.';
+
+      if (error && error.message) {
+        console.log('📧 Mensaje de error:', error.message);
+        // Mensajes específicos del backend
+        if (error.message.includes('correo electrónico es incorrecto') || error.message.includes('correo electrónico es incorrecto')) {
+          errorTitle = '📧 Correo Incorrecto';
+          errorMessage = 'El correo electrónico ingresado no existe en el sistema.';
+        } else if (error.message.includes('contraseña es incorrecta')) {
+          errorTitle = '🔑 Contraseña Incorrecta';
+          errorMessage = 'La contraseña ingresada es incorrecta. Por favor, inténtalo de nuevo.';
+        } else if (error.message.includes('formato del correo')) {
+          errorTitle = '⚠️ Formato Inválido';
+          errorMessage = 'El formato del correo electrónico es inválido.';
+        } else if (error.message.includes('Usuario inactivo')) {
+          errorTitle = '🚫 Usuario Inactivo';
+          errorMessage = 'Tu cuenta está inactiva. Contacta al administrador.';
+        } else if (error.message.includes('conexión') || error.message.includes('Network')) {
+          errorTitle = '🌐 Error de Conexión';
+          errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      console.log('🚨 Mostrando alerta:', errorTitle, '-', errorMessage);
+      Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
     }
   };
 
